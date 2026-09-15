@@ -28,7 +28,9 @@
   const WORDS = [
     "Intelligence", "Craft", "Strategy", "Findable", "Noticed", "Chosen",
     "Visibility", "Attention", "Conversion", "Positioning", "Distinction",
-    "Momentum", "SEO", "AEO", "GEO", "Obvious"
+    "Momentum", "SEO", "AEO", "GEO", "Obvious",
+    "Innovation", "Imagination", "Ingenuity", "Originality", "Vision",
+    "Artistry", "Ideas", "Breakthrough", "Clarity", "Inventive"
   ];
 
   const BLUE = [92, 178, 250];
