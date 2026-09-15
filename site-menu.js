@@ -43,6 +43,7 @@
   toggle.addEventListener("click", () => {
     if (panel.hidden) open();
     else close();
+    if (typeof window.fireAllSynapses === "function") window.fireAllSynapses();
   });
 
   panel.addEventListener("click", (e) => {

@@ -211,6 +211,37 @@
     pointer.lastSpawn = now;
   }
 
+  // Fire a signal toward the junction of every currently visible edge at once,
+  // staggered slightly so it reads as a wave rather than a single flash.
+  // Exposed on window so other UI (e.g. the site menu button) can trigger it.
+  function fireAllVisible() {
+    const now = performance.now();
+    const firedTargets = new Set();
+    for (const e of visibleEdges) {
+      const nodeA = nodes[e.a];
+      const nodeB = nodes[e.b];
+      const target = nodeA.degree >= nodeB.degree ? e : { a: e.b, b: e.a };
+      const targetNode = nodes[target.a];
+      if (firedTargets.has(targetNode.id)) continue;
+      firedTargets.add(targetNode.id);
+      const targetIsA = target.a === e.a;
+      const targetProj = targetIsA ? e.aProj : e.bProj;
+      const startProj = targetIsA ? e.bProj : e.aProj;
+
+      signals.push({
+        startX: startProj.x,
+        startY: startProj.y,
+        endX: targetProj.x,
+        endY: targetProj.y,
+        targetNodeId: targetNode.id,
+        t: 0,
+        duration: 380 + Math.random() * 320,
+        born: now + Math.random() * 320
+      });
+    }
+  }
+  window.fireAllSynapses = fireAllVisible;
+
   function onPointerMove(e) {
     const rect = canvas.getBoundingClientRect();
     pointer.x = e.clientX - rect.left;
