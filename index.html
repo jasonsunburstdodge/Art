@@ -369,6 +369,15 @@
     color: var(--accent-cyan);
     font-weight: 700;
   }
+  .connect-line { display: block; }
+  .closing-tagline {
+    margin-top: 1.8rem;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    line-height: 1.55;
+    color: var(--ink-1);
+  }
   .closing h3 {
     margin-top: 3rem;
     font-size: clamp(1.6rem, 3.4vw, 2.3rem);
@@ -511,7 +520,12 @@
   <section class="closing" id="contact">
     <div class="closing-inner">
       <div class="eyebrow">How It Connects</div>
-      <p class="closing-statement">Search gets you in the room. Design gets you noticed once you're there. Strategy gets you picked. <strong>jAI Studio builds all three, together</strong>, because a brand that's only strong in one of these areas is a brand that's easy to overlook.</p>
+      <p class="closing-statement">
+        <span class="connect-line"><strong>Search</strong> gets you in the room.</span>
+        <span class="connect-line"><strong>Design</strong> gets you noticed.</span>
+        <span class="connect-line"><strong>Strategy</strong> gets you picked.</span>
+      </p>
+      <p class="closing-tagline">jAI Studio connects them for you, so your customers connect with you.</p>
       <h3>Ready to be the obvious choice?</h3>
       <a class="cta" href="mailto:connect@jAI.studio">Start The Connection</a>
     </div>
