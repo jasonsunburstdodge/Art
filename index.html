@@ -385,6 +385,23 @@
     font-weight: 700;
   }
 
+  .summary-heading {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(1.6rem, 3.4vw, 2.3rem);
+    line-height: 1.2;
+    color: var(--ink-1);
+    margin-bottom: 1.8rem;
+  }
+  .summary-text {
+    max-width: 700px;
+    margin: 0 auto 1.1rem;
+    font-size: 1.05rem;
+    line-height: 1.7;
+    color: var(--ink-2);
+  }
+  .summary-text:last-child { margin-bottom: 0; }
+
   footer {
     position: relative;
     z-index: 1;
@@ -540,6 +557,14 @@
       </p>
       <p class="closing-tagline">jAI Studio connects them for you, so your customers connect with you.</p>
       <a class="cta" href="mailto:connect@jAI.studio">Start The Connection</a>
+    </div>
+  </section>
+
+  <section class="closing" id="what-we-do">
+    <div class="closing-inner">
+      <h2 class="summary-heading">Digital Marketing Built Around How Customers Actually Choose</h2>
+      <p class="summary-text">jAI Studio is a Sonoma County digital marketing studio combining search visibility, AI search optimization, web and brand design, messaging, and conversion strategy.</p>
+      <p class="summary-text">Instead of treating SEO, design, content, and positioning as separate services, we connect them around one objective: helping the right people find your business, understand its value, and choose it.</p>
     </div>
   </section>
 
