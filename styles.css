@@ -328,13 +328,13 @@ a { color: var(--accent-cyan); }
     -webkit-mask-image: linear-gradient(to right, transparent 0, black 6%, black 94%, transparent 100%);
     mask-image: linear-gradient(to right, transparent 0, black 6%, black 94%, transparent 100%);
   }
-  .services-cta { text-align: center; }
+  .services-cta, .pillar-more { text-align: center; }
 }
 
 /* ---- Pillar footer link down to the matching hub page ---- */
 .pillar-more {
-  display: inline-block;
-  margin-top: 1.8rem;
+  flex: 0 0 auto;
+  white-space: nowrap;
   font-family: var(--font-mono);
   font-size: 0.78rem;
   letter-spacing: 0.06em;
