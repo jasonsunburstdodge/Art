@@ -485,6 +485,7 @@ footer a:hover { color: var(--accent-cyan); }
 }
 .page-section h2.accent-line {
   color: var(--accent-cyan);
+  text-align: center;
   white-space: nowrap;
   font-size: clamp(1.3rem, 4vw, 2.1rem);
 }
