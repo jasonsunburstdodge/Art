@@ -8,427 +8,19 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<style>
-  :root {
-    color-scheme: dark;
-
-    --bg-void: #04060c;
-    --bg-navy: #0b1226;
-    --bg-navy-mid: #060a17;
-
-    --ink-1: #f2f6ff;
-    --ink-2: #b7c4e6;
-    --ink-3: #7a8bb3;
-
-    --accent-cyan: #5fcdfb;
-    --accent-blue: #2f86f5;
-    --accent-deep: #0040c4;
-    --accent-line: rgba(95, 205, 251, 0.35);
-
-    --font-display: 'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
-    --font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-    --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
-
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-
-  * { box-sizing: border-box; }
-
-  html, body {
-    margin: 0;
-    padding: 0;
-    background: var(--bg-void);
-    color: var(--ink-2);
-    font-family: var(--font-body);
-    overflow-x: hidden;
-  }
-
-  ::selection { background: var(--accent-blue); color: #fff; }
-
-  #synapse-canvas {
-    position: fixed;
-    inset: 0;
-    width: 100vw;
-    height: 100vh;
-    display: block;
-    pointer-events: none;
-    background: radial-gradient(ellipse 90% 70% at 50% 35%, var(--bg-navy) 0%, var(--bg-navy-mid) 55%, var(--bg-void) 100%);
-    z-index: 0;
-  }
-
-  /* ---------------------------------------------------------------- */
-  /* Header / logo                                                     */
-  /* ---------------------------------------------------------------- */
-  header {
-    position: fixed;
-    top: env(safe-area-inset-top, 0px);
-    left: 0;
-    right: 0;
-    z-index: 3;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1.1rem clamp(1.25rem, 4vw, 3rem);
-    background: linear-gradient(to bottom, rgba(4,6,12,0.75), rgba(4,6,12,0));
-    backdrop-filter: blur(6px);
-  }
-
-  .logo {
-    display: inline-flex;
-    align-items: baseline;
-    font-family: var(--font-display);
-    font-weight: 800;
-    font-size: 1.35rem;
-    letter-spacing: -0.01em;
-    white-space: nowrap;
-  }
-  .logo .j { color: var(--ink-1); }
-  .logo .ai {
-    background: linear-gradient(160deg, var(--accent-cyan) 0%, var(--accent-blue) 55%, var(--accent-deep) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-  .logo .studio { color: var(--ink-1); margin-left: 0.28em; }
-
-  nav {
-    display: flex;
-    gap: clamp(1rem, 2.4vw, 2rem);
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-  }
-  nav a {
-    color: var(--ink-3);
-    text-decoration: none;
-    transition: color 0.2s ease;
-  }
-  nav a:hover { color: var(--accent-cyan); }
-  nav a.contact-link {
-    color: var(--ink-1);
-    border: 1px solid var(--accent-line);
-    border-radius: 999px;
-    padding: 0.5em 1.1em;
-  }
-  nav a.contact-link:hover {
-    border-color: var(--accent-cyan);
-    background: rgba(95, 205, 251, 0.08);
-  }
-  @media (max-width: 720px) {
-    nav a:not(.contact-link) { display: none; }
-  }
-
-  /* ---------------------------------------------------------------- */
-  /* Layout / typography                                                */
-  /* ---------------------------------------------------------------- */
-  main { position: relative; z-index: 1; }
-
-  section {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    padding: clamp(6rem, 12vh, 9rem) clamp(1.5rem, 6vw, 5rem);
-  }
-
-  .eyebrow {
-    font-family: var(--font-mono);
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    font-size: 0.72rem;
-    color: var(--accent-cyan);
-    margin: 0 0 1.4rem;
-  }
-
-  h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
-
-  p { margin: 0; }
-
-  /* ---- Hero ---- */
-  .hero {
-    flex-direction: column;
-    justify-content: center;
-    text-align: center;
-  }
-  .hero-inner { max-width: 900px; margin: 0 auto; }
-  .hero .eyebrow {
-    white-space: nowrap;
-    font-size: clamp(0.44rem, 2.1vw, 0.72rem);
-    letter-spacing: clamp(0.09em, 0.9vw, 0.22em);
-  }
-  .hero h1 {
-    font-size: clamp(2.6rem, 7vw, 5.4rem);
-    font-weight: 800;
-    line-height: 1.03;
-    color: var(--ink-1);
-  }
-  .hero-line { display: block; }
-  .hero-accent { color: var(--accent-cyan); }
-  .hero .subhead {
-    margin: 1.6rem auto 0;
-    max-width: 640px;
-    font-size: clamp(1.05rem, 1.9vw, 1.3rem);
-    line-height: 1.6;
-    color: var(--ink-2);
-  }
-  .hero .value-line {
-    margin: 1.1rem auto 0;
-    max-width: 560px;
-    font-size: 1rem;
-    color: var(--ink-3);
-  }
-
-  .cta {
-    display: inline-block;
-    margin-top: 2.6rem;
-    padding: 0.95em 2.1em;
-    border-radius: 999px;
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: 0.95rem;
-    color: var(--bg-void);
-    background: linear-gradient(120deg, var(--accent-cyan), var(--accent-blue));
-    text-decoration: none;
-    box-shadow: 0 0 0 1px rgba(95,205,251,0.25), 0 12px 32px -10px rgba(47,134,245,0.55);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-  .cta:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0 0 1px rgba(95,205,251,0.4), 0 16px 40px -8px rgba(47,134,245,0.65);
-  }
-
-  .scroll-cue {
-    margin: 3.2rem auto 0;
-    width: 20px;
-    height: 20px;
-    border-right: 2px solid var(--accent-cyan);
-    border-bottom: 2px solid var(--accent-cyan);
-    transform: rotate(45deg);
-    opacity: 0.6;
-    animation: bob 1.8s ease-in-out infinite;
-  }
-  @keyframes bob {
-    0%, 100% { transform: rotate(45deg) translate(0,0); }
-    50% { transform: rotate(45deg) translate(6px, 6px); }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .scroll-cue { animation: none; }
-  }
-
-  /* ---- Pillars ---- */
-  .pillar-grid {
-    display: grid;
-    grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.6fr);
-    gap: clamp(2rem, 6vw, 5rem);
-    max-width: 1180px;
-    margin: 0 auto;
-    align-items: start;
-  }
-  .pillar:nth-of-type(even) .pillar-grid { direction: rtl; }
-  .pillar:nth-of-type(even) .pillar-grid > * { direction: ltr; }
-
-  .pillar-head { position: sticky; top: 7rem; }
-  .pillar-num {
-    display: block;
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
-    color: var(--ink-3);
-    letter-spacing: 0.1em;
-    margin-bottom: 0.9rem;
-  }
-  .pillar-label {
-    display: block;
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    color: var(--accent-cyan);
-    margin-bottom: 0.6rem;
-  }
-  .pillar-head h2 {
-    font-size: clamp(1.9rem, 3.6vw, 2.7rem);
-    font-weight: 700;
-    color: var(--ink-1);
-    line-height: 1.08;
-  }
-
-  .pillar-body { min-width: 0; }
-
-  .pillar-quote {
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: clamp(1.15rem, 2vw, 1.45rem);
-    line-height: 1.5;
-    color: var(--ink-1);
-    padding-left: 1.2rem;
-    border-left: 2px solid var(--accent-line);
-  }
-  .pillar-value {
-    margin-top: 1.6rem;
-    max-width: 60ch;
-    font-size: 1.02rem;
-    line-height: 1.7;
-    color: var(--ink-2);
-  }
-  .pillar-value p + p { margin-top: 1em; }
-
-  /* Services stream: tags drift left-to-right and fade into the CTA. */
-  .services-row {
-    display: flex;
-    align-items: center;
-    gap: 1.1rem;
-    margin: 2rem 0 0;
-    max-width: 100%;
-  }
-  .services-track-viewport {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    -webkit-mask-image: linear-gradient(to right, transparent 0, black 6%, black 74%, transparent 100%);
-    mask-image: linear-gradient(to right, transparent 0, black 6%, black 74%, transparent 100%);
-  }
-  .services-track {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    width: max-content;
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    animation: services-drift 26s linear infinite;
-  }
-  .services-row:hover .services-track { animation-play-state: paused; }
-  @keyframes services-drift {
-    from { transform: translateX(-50%); }
-    to { transform: translateX(0); }
-  }
-  .services-track li {
-    flex: 0 0 auto;
-    font-family: var(--font-mono);
-    font-size: 0.74rem;
-    letter-spacing: 0.04em;
-    white-space: nowrap;
-    color: var(--ink-1);
-    border: 1px solid rgba(183, 196, 230, 0.22);
-    border-radius: 999px;
-    padding: 0.5em 1em;
-    background: rgba(11, 18, 38, 0.4);
-  }
-  .services-cta {
-    flex: 0 0 auto;
-    white-space: nowrap;
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: 0.82rem;
-    color: var(--bg-void);
-    background: linear-gradient(120deg, var(--accent-cyan), var(--accent-blue));
-    border-radius: 999px;
-    padding: 0.75em 1.4em;
-    text-decoration: none;
-    box-shadow: 0 0 0 1px rgba(95,205,251,0.25), 0 10px 26px -10px rgba(47,134,245,0.6);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-  .services-cta:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0 0 1px rgba(95,205,251,0.4), 0 14px 32px -8px rgba(47,134,245,0.7);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .services-track { animation: none; }
-  }
-
-  @media (max-width: 860px) {
-    .pillar-grid { grid-template-columns: minmax(0, 1fr); }
-    .pillar:nth-of-type(even) .pillar-grid { direction: ltr; }
-    .pillar-head { position: static; }
-  }
-  @media (max-width: 560px) {
-    .services-row { flex-direction: column; align-items: stretch; }
-    .services-track-viewport {
-      -webkit-mask-image: linear-gradient(to right, transparent 0, black 6%, black 94%, transparent 100%);
-      mask-image: linear-gradient(to right, transparent 0, black 6%, black 94%, transparent 100%);
-    }
-    .services-cta { text-align: center; }
-  }
-
-  /* ---- Closing / contact ---- */
-  .closing {
-    flex-direction: column;
-    justify-content: center;
-    text-align: center;
-  }
-  .closing-inner { max-width: 780px; margin: 0 auto; }
-  .closing-statement {
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: clamp(1.4rem, 3vw, 2rem);
-    line-height: 1.55;
-    color: var(--ink-1);
-  }
-  .closing-statement strong {
-    color: var(--accent-cyan);
-    font-weight: 700;
-  }
-  .connect-line { display: block; }
-  .closing-tagline {
-    margin-top: 1.8rem;
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: clamp(1.4rem, 3vw, 2rem);
-    line-height: 1.55;
-    color: var(--ink-1);
-  }
-  .closing h3 {
-    margin-top: 3rem;
-    font-size: clamp(1.6rem, 3.4vw, 2.3rem);
-    color: var(--ink-1);
-    font-weight: 700;
-  }
-
-  .summary-heading {
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: clamp(1.6rem, 3.4vw, 2.3rem);
-    line-height: 1.2;
-    color: var(--ink-1);
-    margin-bottom: 1.8rem;
-  }
-  .summary-text {
-    max-width: 700px;
-    margin: 0 auto 1.1rem;
-    font-size: 1.05rem;
-    line-height: 1.7;
-    color: var(--ink-2);
-  }
-  .summary-text:last-child { margin-bottom: 0; }
-
-  footer {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    align-items: center;
-    justify-content: space-between;
-    padding: 2.2rem clamp(1.5rem, 6vw, 5rem) calc(2.2rem + env(safe-area-inset-bottom, 0px));
-    border-top: 1px solid rgba(183,196,230,0.12);
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    color: var(--ink-3);
-  }
-</style>
+<link rel="stylesheet" href="/styles.css">
 </head>
 <body>
 
 <canvas id="synapse-canvas"></canvas>
 
 <header>
-  <span class="logo"><span class="j">j</span><span class="ai">AI</span><span class="studio">Studio</span></span>
+  <a class="logo" href="/"><span class="j">j</span><span class="ai">AI</span><span class="studio">Studio</span></a>
   <nav>
-    <a href="#intelligence">Intelligence</a>
-    <a href="#craft">Craft</a>
-    <a href="#strategy">Strategy</a>
-    <a href="#contact" class="contact-link">Contact</a>
+    <a href="/visibility/">Visibility</a>
+    <a href="/design/">Design</a>
+    <a href="/strategy/">Strategy</a>
+    <a href="/#contact" class="contact-link">Contact</a>
   </nav>
 </header>
 
@@ -477,6 +69,7 @@
           </div>
           <a class="services-cta" href="mailto:connect@jAI.studio?subject=Visibility%20Audit">Get a Visibility Audit</a>
         </div>
+        <a class="pillar-more" href="/visibility/">Explore Visibility →</a>
       </div>
     </div>
   </section>
@@ -510,6 +103,7 @@
           </div>
           <a class="services-cta" href="mailto:connect@jAI.studio?subject=Design%20Review">Get a Design Review</a>
         </div>
+        <a class="pillar-more" href="/design/">Explore Design →</a>
       </div>
     </div>
   </section>
@@ -543,6 +137,7 @@
           </div>
           <a class="services-cta" href="mailto:connect@jAI.studio?subject=Messaging%20Audit">Get a Messaging Audit</a>
         </div>
+        <a class="pillar-more" href="/strategy/">Explore Strategy →</a>
       </div>
     </div>
   </section>
@@ -571,7 +166,16 @@
 </main>
 
 <footer>
-  <span class="logo"><span class="j">j</span><span class="ai">AI</span><span class="studio">Studio</span></span>
+  <a class="logo" href="/"><span class="j">j</span><span class="ai">AI</span><span class="studio">Studio</span></a>
+  <nav class="footer-nav">
+    <a href="/visibility/">Visibility</a>
+    <a href="/design/">Design</a>
+    <a href="/strategy/">Strategy</a>
+    <a href="/sonoma-county/">Sonoma County</a>
+    <a href="/about/">About</a>
+    <a href="/insights/">Insights</a>
+    <a href="/#contact">Contact</a>
+  </nav>
   <span>&copy; 2026 jAI Studio. Intelligence. Art. Strategy. Together.</span>
 </footer>
 
