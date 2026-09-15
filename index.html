@@ -161,11 +161,10 @@
     font-size: clamp(2.6rem, 7vw, 5.4rem);
     font-weight: 800;
     line-height: 1.03;
-    background: linear-gradient(100deg, var(--ink-1) 0%, var(--ink-1) 55%, var(--accent-cyan) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    color: var(--ink-1);
   }
+  .hero-line { display: block; }
+  .hero-accent { color: var(--accent-cyan); }
   .hero .subhead {
     margin: 1.6rem auto 0;
     max-width: 640px;
@@ -421,7 +420,12 @@
   <section class="hero">
     <div class="hero-inner">
       <div class="eyebrow">jAI Studio: Innovation, Design, Clarity</div>
-      <h1>Be Found. Be Noticed. Be Heard. Get Chosen.</h1>
+      <h1>
+        <span class="hero-line">Be Found.</span>
+        <span class="hero-line">Be Noticed.</span>
+        <span class="hero-line">Be Heard.</span>
+        <span class="hero-line hero-accent">Get Chosen.</span>
+      </h1>
       <p class="subhead">The intelligence behind getting found, the art behind getting noticed, the strategy behind getting chosen.</p>
       <p class="value-line">When your visibility, your brand, and your message move together, being chosen isn't luck; it's an obvious outcome.</p>
       <a class="cta" href="#contact">Start The Connection</a>
