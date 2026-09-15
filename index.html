@@ -249,6 +249,8 @@
     line-height: 1.08;
   }
 
+  .pillar-body { min-width: 0; }
+
   .pillar-quote {
     font-family: var(--font-display);
     font-weight: 600;
@@ -266,29 +268,82 @@
     color: var(--ink-2);
   }
 
-  .tag-list {
+  /* Services stream: tags drift left-to-right and fade into the CTA. */
+  .services-row {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.6rem;
-    list-style: none;
-    padding: 0;
+    align-items: center;
+    gap: 1.1rem;
     margin: 2rem 0 0;
+    max-width: 100%;
   }
-  .tag-list li {
+  .services-track-viewport {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, black 6%, black 74%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, black 6%, black 74%, transparent 100%);
+  }
+  .services-track {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: max-content;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    animation: services-drift 26s linear infinite;
+  }
+  .services-row:hover .services-track { animation-play-state: paused; }
+  @keyframes services-drift {
+    from { transform: translateX(-50%); }
+    to { transform: translateX(0); }
+  }
+  .services-track li {
+    flex: 0 0 auto;
     font-family: var(--font-mono);
     font-size: 0.74rem;
     letter-spacing: 0.04em;
+    white-space: nowrap;
     color: var(--ink-1);
     border: 1px solid rgba(183, 196, 230, 0.22);
     border-radius: 999px;
     padding: 0.5em 1em;
     background: rgba(11, 18, 38, 0.4);
   }
+  .services-cta {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.82rem;
+    color: var(--bg-void);
+    background: linear-gradient(120deg, var(--accent-cyan), var(--accent-blue));
+    border-radius: 999px;
+    padding: 0.75em 1.4em;
+    text-decoration: none;
+    box-shadow: 0 0 0 1px rgba(95,205,251,0.25), 0 10px 26px -10px rgba(47,134,245,0.6);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .services-cta:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 0 1px rgba(95,205,251,0.4), 0 14px 32px -8px rgba(47,134,245,0.7);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .services-track { animation: none; }
+  }
 
   @media (max-width: 860px) {
-    .pillar-grid { grid-template-columns: 1fr; }
+    .pillar-grid { grid-template-columns: minmax(0, 1fr); }
     .pillar:nth-of-type(even) .pillar-grid { direction: ltr; }
     .pillar-head { position: static; }
+  }
+  @media (max-width: 560px) {
+    .services-row { flex-direction: column; align-items: stretch; }
+    .services-track-viewport {
+      -webkit-mask-image: linear-gradient(to right, transparent 0, black 6%, black 94%, transparent 100%);
+      mask-image: linear-gradient(to right, transparent 0, black 6%, black 94%, transparent 100%);
+    }
+    .services-cta { text-align: center; }
   }
 
   /* ---- Closing / contact ---- */
@@ -369,13 +424,23 @@
       <div class="pillar-body">
         <p class="pillar-quote">"We make sure the algorithms — search engines and AI engines alike — put you in front of the people looking for you."</p>
         <p class="pillar-value">Your next client is already searching — on Google, and increasingly by asking ChatGPT, Gemini, or Perplexity who's worth calling. Optimize for only one of those and you're invisible in exactly the moment someone was ready to hire you. We build for both, so the algorithms keep pointing your way.</p>
-        <ul class="tag-list">
-          <li>SEO</li>
-          <li>AEO — Answer Engine Optimization</li>
-          <li>GEO — Generative Engine Optimization</li>
-          <li>Google Business Profile &amp; Local Search</li>
-          <li>Technical SEO Audits &amp; Site Architecture</li>
-        </ul>
+        <div class="services-row">
+          <div class="services-track-viewport">
+            <ul class="services-track">
+              <li>SEO</li>
+              <li>AEO — Answer Engine Optimization</li>
+              <li>GEO — Generative Engine Optimization</li>
+              <li>Google Business Profile &amp; Local Search</li>
+              <li>Technical SEO Audits &amp; Site Architecture</li>
+              <li aria-hidden="true">SEO</li>
+              <li aria-hidden="true">AEO — Answer Engine Optimization</li>
+              <li aria-hidden="true">GEO — Generative Engine Optimization</li>
+              <li aria-hidden="true">Google Business Profile &amp; Local Search</li>
+              <li aria-hidden="true">Technical SEO Audits &amp; Site Architecture</li>
+            </ul>
+          </div>
+          <a class="services-cta" href="mailto:connect@jAI.studio?subject=Visibility%20Audit">Get a Visibility Audit</a>
+        </div>
       </div>
     </div>
   </section>
@@ -390,12 +455,21 @@
       <div class="pillar-body">
         <p class="pillar-quote">"Being found doesn't matter if you're forgettable the moment someone looks. We design for the first three seconds."</p>
         <p class="pillar-value">A cluttered site or an off-brand feed tells a stranger you're not serious before they've read a word. We design the web experience, brand identity, and content that make someone stop scrolling, take you seriously, and keep looking — because being found only to be forgotten is the same as never being found at all.</p>
-        <ul class="tag-list">
-          <li>Web Design &amp; Development</li>
-          <li>Brand Identity &amp; Visual Systems</li>
-          <li>Content Design — Social, Ads, Video</li>
-          <li>UX / UI That Converts</li>
-        </ul>
+        <div class="services-row">
+          <div class="services-track-viewport">
+            <ul class="services-track">
+              <li>Web Design &amp; Development</li>
+              <li>Brand Identity &amp; Visual Systems</li>
+              <li>Content Design — Social, Ads, Video</li>
+              <li>UX / UI That Converts</li>
+              <li aria-hidden="true">Web Design &amp; Development</li>
+              <li aria-hidden="true">Brand Identity &amp; Visual Systems</li>
+              <li aria-hidden="true">Content Design — Social, Ads, Video</li>
+              <li aria-hidden="true">UX / UI That Converts</li>
+            </ul>
+          </div>
+          <a class="services-cta" href="mailto:connect@jAI.studio?subject=Design%20Review">Get a Design Review</a>
+        </div>
       </div>
     </div>
   </section>
@@ -410,12 +484,21 @@
       <div class="pillar-body">
         <p class="pillar-quote">"Attention isn't the finish line — the decision is. We build the case that makes you the obvious choice."</p>
         <p class="pillar-value">Someone who finds you and likes what they see still opens two more tabs to compare you against the competition. We build the positioning and messaging that make choosing anyone else feel like the wrong call — so the comparison ends with you.</p>
-        <ul class="tag-list">
-          <li>Positioning &amp; Brand Voice</li>
-          <li>Copywriting &amp; Content Strategy</li>
-          <li>Conversion-Focused Messaging Frameworks</li>
-          <li>Competitive Differentiation</li>
-        </ul>
+        <div class="services-row">
+          <div class="services-track-viewport">
+            <ul class="services-track">
+              <li>Positioning &amp; Brand Voice</li>
+              <li>Copywriting &amp; Content Strategy</li>
+              <li>Conversion-Focused Messaging Frameworks</li>
+              <li>Competitive Differentiation</li>
+              <li aria-hidden="true">Positioning &amp; Brand Voice</li>
+              <li aria-hidden="true">Copywriting &amp; Content Strategy</li>
+              <li aria-hidden="true">Conversion-Focused Messaging Frameworks</li>
+              <li aria-hidden="true">Competitive Differentiation</li>
+            </ul>
+          </div>
+          <a class="services-cta" href="mailto:connect@jAI.studio?subject=Messaging%20Audit">Get a Messaging Audit</a>
+        </div>
       </div>
     </div>
   </section>
@@ -425,7 +508,7 @@
       <div class="eyebrow">How It Connects</div>
       <p class="closing-statement">Search gets you in the room. Design gets you noticed once you're there. Strategy gets you picked. <strong>jAI Studio builds all three, together</strong> — because a brand that's only strong in one of these areas is a brand that's easy to overlook.</p>
       <h3>Ready to be the obvious choice?</h3>
-      <a class="cta" href="mailto:hello@jaistudio.com">Start the Conversation</a>
+      <a class="cta" href="mailto:connect@jAI.studio">Start the Conversation</a>
     </div>
   </section>
 
