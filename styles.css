@@ -461,6 +461,10 @@ footer a:hover { color: var(--accent-cyan); }
   line-height: 1.08;
   color: var(--ink-1);
 }
+.page-hero h1 .hero-line {
+  white-space: nowrap;
+  font-size: clamp(1.1rem, 5.6vw, 3.6rem);
+}
 .page-hero .page-intro {
   margin: 1.4rem auto 0;
   max-width: 680px;
