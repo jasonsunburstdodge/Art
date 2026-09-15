@@ -7,15 +7,15 @@
   // ---------------------------------------------------------------------
   // Config
   // ---------------------------------------------------------------------
-  const NODE_COUNT = 560;
+  const NODE_COUNT = 1120;
   const WORLD_X = 1300;
   const WORLD_Y = 850;
   const TOTAL_DEPTH = 6400;
   const FOCAL = 460;
   const NEAR_CLIP = 26;
   const FAR_CLIP = 1500;
-  const CONNECT_MAX_DIST = 320;
-  const MAX_NEIGHBORS = 3;
+  const CONNECT_MAX_DIST = 260;
+  const MAX_NEIGHBORS = 4;
   const ACCENT_RATIO = 0.14;
 
   const DUST_COUNT = 260;
