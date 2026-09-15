@@ -483,6 +483,14 @@ footer a:hover { color: var(--accent-cyan); }
   color: var(--ink-1);
   margin-bottom: 1.2rem;
 }
+.page-section h2.accent-line {
+  color: var(--accent-cyan);
+  white-space: nowrap;
+  font-size: clamp(1.3rem, 4vw, 2.1rem);
+}
+@media (max-width: 480px) {
+  .page-section h2.accent-line { white-space: normal; font-size: clamp(1.3rem, 6vw, 1.8rem); }
+}
 .page-copy { max-width: 70ch; font-size: 1.02rem; line-height: 1.7; color: var(--ink-2); }
 .page-copy p + p, .page-copy ul + p, .page-copy p + ul { margin-top: 1em; }
 .page-copy ul.list-plain { margin-top: 0.4em; }
