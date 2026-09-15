@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Synapse Field</title>
+<style>
+  :root {
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #05070f;
+    color: #eaf2ff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overflow-x: hidden;
+  }
+
+  #synapse-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    display: block;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 50% 40%, #0c1330 0%, #060912 55%, #030408 100%);
+    z-index: 0;
+  }
+
+  main {
+    position: relative;
+    z-index: 1;
+  }
+
+  section {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 8vh 6vw;
+  }
+
+  .eyebrow {
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    color: #6fa8ff;
+    margin-bottom: 1.2rem;
+    opacity: 0.85;
+  }
+
+  h1 {
+    font-size: clamp(2.2rem, 6vw, 4.5rem);
+    line-height: 1.05;
+    margin: 0 0 1.2rem;
+    font-weight: 700;
+    text-shadow: 0 0 30px rgba(90, 160, 255, 0.35);
+  }
+
+  h2 {
+    font-size: clamp(1.6rem, 4vw, 2.8rem);
+    margin: 0 0 1rem;
+    font-weight: 600;
+  }
+
+  p {
+    max-width: 620px;
+    font-size: clamp(1rem, 1.6vw, 1.15rem);
+    line-height: 1.6;
+    color: #b9c6e6;
+    margin: 0 auto;
+  }
+
+  .hint {
+    margin-top: 3rem;
+    font-size: 0.85rem;
+    color: #7186ad;
+    opacity: 0.8;
+  }
+
+  .scroll-arrow {
+    margin-top: 1.4rem;
+    width: 22px;
+    height: 22px;
+    border-right: 2px solid #6fa8ff;
+    border-bottom: 2px solid #6fa8ff;
+    transform: rotate(45deg);
+    opacity: 0.7;
+    animation: bob 1.8s ease-in-out infinite;
+  }
+
+  @keyframes bob {
+    0%, 100% { transform: rotate(45deg) translate(0,0); }
+    50% { transform: rotate(45deg) translate(6px, 6px); }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="synapse-canvas"></canvas>
+
+<main>
+  <section>
+    <div class="eyebrow">Move your cursor · Scroll to travel</div>
+    <h1>We think in networks.</h1>
+    <p>Every idea fires across a thousand connections before it becomes work worth shipping. Touch the field below and watch a signal find its way to the next junction.</p>
+    <div class="scroll-arrow"></div>
+  </section>
+
+  <section>
+    <h2>Creative, wired for results.</h2>
+    <p>Scroll to move deeper through the network. Each junction you pass carries a spark — creative, function, innovation, value — the currents behind marketing that actually performs.</p>
+  </section>
+
+  <section>
+    <h2>Signal in, insight out.</h2>
+    <p>Drag your finger or mouse across the field. The nearest line lights up and carries a pulse to the next node, flaring a word before it fades — the way a good idea actually spreads.</p>
+  </section>
+
+  <section>
+    <h2>Built for momentum.</h2>
+    <p>Keep scrolling. The network keeps unfolding.</p>
+    <div class="hint">This is a live background demo — resize, scroll, and move your pointer freely.</div>
+  </section>
+</main>
+
+<script src="synapses.js"></script>
+</body>
+</html>
