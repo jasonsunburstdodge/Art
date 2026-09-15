@@ -443,7 +443,8 @@ footer a:hover { color: var(--accent-cyan); }
 .breadcrumb .sep { margin: 0 0.5em; opacity: 0.5; }
 
 .page-hero {
-  min-height: 90vh;
+  min-height: auto;
+  padding: clamp(3rem, 8vh, 4.5rem) clamp(1.5rem, 6vw, 5rem) clamp(2.5rem, 6vh, 3.5rem);
   flex-direction: column;
   justify-content: center;
   text-align: center;
