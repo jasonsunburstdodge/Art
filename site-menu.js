@@ -30,6 +30,16 @@
     if (!panel.contains(e.target) && !toggle.contains(e.target)) close();
   }
 
+  function pulse() {
+    toggle.classList.remove("pulse");
+    // Restart the animation even if it's already mid-run from a rapid tap.
+    void toggle.offsetWidth;
+    toggle.classList.add("pulse");
+  }
+  toggle.addEventListener("animationend", () => toggle.classList.remove("pulse"));
+
+  toggle.addEventListener("pointerdown", pulse);
+
   toggle.addEventListener("click", () => {
     if (panel.hidden) open();
     else close();
