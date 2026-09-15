@@ -16,7 +16,6 @@
   const FAR_CLIP = 1500;
   const CONNECT_MAX_DIST = 260;
   const MAX_NEIGHBORS = 4;
-  const ACCENT_RATIO = 0.14;
 
   const DUST_COUNT = 260;
   const DUST_FAR_CLIP = 2800;
@@ -24,8 +23,14 @@
   const STREAK_VELOCITY_THRESHOLD = 0.8; // world units/frame before streaks appear
   const STREAK_DEPTH_LIMIT = 260; // only nodes this close to camera streak
 
-  // Vocabulary drawn from jAI Studio's own pillars, not generic filler.
-  const WORDS = [
+  // Per-page theme override: a page can set window.SYNAPSE_THEME = { primary, accent, accentRatio, words }
+  // in an inline <script> before this file loads. Anything it omits falls back to the site default below.
+  const theme = window.SYNAPSE_THEME || {};
+
+  const ACCENT_RATIO = theme.accentRatio != null ? theme.accentRatio : 0.14;
+
+  // Default vocabulary drawn from jAI Studio's own pillars, not generic filler.
+  const WORDS = theme.words || [
     "Intelligence", "Craft", "Strategy", "Findable", "Noticed", "Chosen",
     "Visibility", "Attention", "Conversion", "Positioning", "Distinction",
     "Momentum", "SEO", "AEO", "GEO", "Obvious",
@@ -33,8 +38,8 @@
     "Artistry", "Ideas", "Breakthrough", "Clarity", "Inventive"
   ];
 
-  const BLUE = [92, 178, 250];
-  const AMBER = [255, 165, 80];
+  const BLUE = theme.primary || [92, 178, 250];
+  const AMBER = theme.accent || [255, 165, 80];
 
   // ---------------------------------------------------------------------
   // State
