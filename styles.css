@@ -477,6 +477,10 @@ footer a:hover { color: var(--accent-cyan); }
 .page-copy { max-width: 70ch; font-size: 1.02rem; line-height: 1.7; color: var(--ink-2); }
 .page-copy p + p { margin-top: 1em; }
 
+.faq-list { margin-top: 1.4rem; display: flex; flex-direction: column; gap: 1.7rem; max-width: 70ch; }
+.faq-item h3 { font-size: 1.05rem; font-weight: 700; color: var(--ink-1); margin-bottom: 0.5rem; }
+.faq-item p { font-size: 1rem; line-height: 1.7; color: var(--ink-2); }
+
 .page-stub {
   font-size: 0.98rem;
   line-height: 1.7;
