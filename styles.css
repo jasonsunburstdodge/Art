@@ -50,10 +50,7 @@ html, body {
 /* Header / logo                                                     */
 /* ---------------------------------------------------------------- */
 header {
-  position: fixed;
-  top: env(safe-area-inset-top, 0px);
-  left: 0;
-  right: 0;
+  position: relative;
   z-index: 3;
   display: flex;
   align-items: center;
