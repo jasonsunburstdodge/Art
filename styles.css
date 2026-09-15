@@ -550,6 +550,7 @@ footer a:hover { color: var(--accent-cyan); }
   margin-bottom: 0.5rem;
 }
 .cluster-card p { font-size: 0.92rem; line-height: 1.55; color: var(--ink-3); }
+.cluster-card .hub-link { display: inline-block; margin-top: 0.9rem; }
 
 .audit-list {
   margin: 1.4rem 0 0;
