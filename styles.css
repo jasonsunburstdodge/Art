@@ -450,6 +450,11 @@ footer a:hover { color: var(--accent-cyan); }
   text-align: center;
 }
 .page-hero-inner { max-width: 860px; margin: 0 auto; }
+.page-hero .eyebrow {
+  white-space: nowrap;
+  font-size: clamp(0.38rem, 2.4vw, 0.72rem);
+  letter-spacing: clamp(0.04em, 0.9vw, 0.22em);
+}
 .page-hero h1 {
   font-size: clamp(2.1rem, 5.2vw, 3.8rem);
   font-weight: 800;
