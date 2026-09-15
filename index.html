@@ -3,20 +3,48 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Synapse Field</title>
+<title>jAI Studio</title>
+<meta name="description" content="jAI Studio — the intelligence behind getting found, the craft behind getting noticed, the strategy behind getting chosen.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
   :root {
     color-scheme: dark;
+
+    --bg-void: #04060c;
+    --bg-navy: #0b1226;
+    --bg-navy-mid: #060a17;
+
+    --ink-1: #f2f6ff;
+    --ink-2: #b7c4e6;
+    --ink-3: #7a8bb3;
+
+    --accent-cyan: #5fcdfb;
+    --accent-blue: #2f86f5;
+    --accent-deep: #0040c4;
+    --accent-line: rgba(95, 205, 251, 0.35);
+
+    --font-display: 'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
+
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+
   * { box-sizing: border-box; }
+
   html, body {
     margin: 0;
     padding: 0;
-    background: #05070f;
-    color: #eaf2ff;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg-void);
+    color: var(--ink-2);
+    font-family: var(--font-body);
     overflow-x: hidden;
   }
+
+  ::selection { background: var(--accent-blue); color: #fff; }
 
   #synapse-canvas {
     position: fixed;
@@ -25,77 +53,282 @@
     height: 100vh;
     display: block;
     pointer-events: none;
-    background: radial-gradient(ellipse at 50% 40%, #0c1330 0%, #060912 55%, #030408 100%);
+    background: radial-gradient(ellipse 90% 70% at 50% 35%, var(--bg-navy) 0%, var(--bg-navy-mid) 55%, var(--bg-void) 100%);
     z-index: 0;
   }
 
-  main {
-    position: relative;
-    z-index: 1;
+  /* ---------------------------------------------------------------- */
+  /* Header / logo                                                     */
+  /* ---------------------------------------------------------------- */
+  header {
+    position: fixed;
+    top: env(safe-area-inset-top, 0px);
+    left: 0;
+    right: 0;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.1rem clamp(1.25rem, 4vw, 3rem);
+    background: linear-gradient(to bottom, rgba(4,6,12,0.75), rgba(4,6,12,0));
+    backdrop-filter: blur(6px);
   }
+
+  .logo {
+    display: inline-flex;
+    align-items: baseline;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 1.35rem;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+  .logo .j { color: var(--ink-1); }
+  .logo .ai {
+    background: linear-gradient(160deg, var(--accent-cyan) 0%, var(--accent-blue) 55%, var(--accent-deep) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .logo .studio { color: var(--ink-1); margin-left: 0.28em; }
+
+  nav {
+    display: flex;
+    gap: clamp(1rem, 2.4vw, 2rem);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  nav a {
+    color: var(--ink-3);
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+  nav a:hover { color: var(--accent-cyan); }
+  nav a.contact-link {
+    color: var(--ink-1);
+    border: 1px solid var(--accent-line);
+    border-radius: 999px;
+    padding: 0.5em 1.1em;
+  }
+  nav a.contact-link:hover {
+    border-color: var(--accent-cyan);
+    background: rgba(95, 205, 251, 0.08);
+  }
+  @media (max-width: 720px) {
+    nav a:not(.contact-link) { display: none; }
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Layout / typography                                                */
+  /* ---------------------------------------------------------------- */
+  main { position: relative; z-index: 1; }
 
   section {
     min-height: 100vh;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 8vh 6vw;
+    padding: clamp(6rem, 12vh, 9rem) clamp(1.5rem, 6vw, 5rem);
   }
 
   .eyebrow {
-    letter-spacing: 0.3em;
+    font-family: var(--font-mono);
+    letter-spacing: 0.22em;
     text-transform: uppercase;
-    font-size: 0.75rem;
-    color: #6fa8ff;
-    margin-bottom: 1.2rem;
-    opacity: 0.85;
+    font-size: 0.72rem;
+    color: var(--accent-cyan);
+    margin: 0 0 1.4rem;
   }
 
-  h1 {
-    font-size: clamp(2.2rem, 6vw, 4.5rem);
-    line-height: 1.05;
-    margin: 0 0 1.2rem;
-    font-weight: 700;
-    text-shadow: 0 0 30px rgba(90, 160, 255, 0.35);
-  }
+  h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
 
-  h2 {
-    font-size: clamp(1.6rem, 4vw, 2.8rem);
-    margin: 0 0 1rem;
-    font-weight: 600;
-  }
+  p { margin: 0; }
 
-  p {
-    max-width: 620px;
-    font-size: clamp(1rem, 1.6vw, 1.15rem);
+  /* ---- Hero ---- */
+  .hero {
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+  }
+  .hero-inner { max-width: 900px; margin: 0 auto; }
+  .hero h1 {
+    font-size: clamp(2.6rem, 7vw, 5.4rem);
+    font-weight: 800;
+    line-height: 1.03;
+    background: linear-gradient(100deg, var(--ink-1) 0%, var(--ink-1) 55%, var(--accent-cyan) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero .subhead {
+    margin: 1.6rem auto 0;
+    max-width: 640px;
+    font-size: clamp(1.05rem, 1.9vw, 1.3rem);
     line-height: 1.6;
-    color: #b9c6e6;
-    margin: 0 auto;
+    color: var(--ink-2);
+  }
+  .hero .value-line {
+    margin: 1.1rem auto 0;
+    max-width: 560px;
+    font-size: 1rem;
+    color: var(--ink-3);
   }
 
-  .hint {
-    margin-top: 3rem;
-    font-size: 0.85rem;
-    color: #7186ad;
-    opacity: 0.8;
+  .cta {
+    display: inline-block;
+    margin-top: 2.6rem;
+    padding: 0.95em 2.1em;
+    border-radius: 999px;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--bg-void);
+    background: linear-gradient(120deg, var(--accent-cyan), var(--accent-blue));
+    text-decoration: none;
+    box-shadow: 0 0 0 1px rgba(95,205,251,0.25), 0 12px 32px -10px rgba(47,134,245,0.55);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .cta:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 0 1px rgba(95,205,251,0.4), 0 16px 40px -8px rgba(47,134,245,0.65);
   }
 
-  .scroll-arrow {
-    margin-top: 1.4rem;
-    width: 22px;
-    height: 22px;
-    border-right: 2px solid #6fa8ff;
-    border-bottom: 2px solid #6fa8ff;
+  .scroll-cue {
+    margin: 3.2rem auto 0;
+    width: 20px;
+    height: 20px;
+    border-right: 2px solid var(--accent-cyan);
+    border-bottom: 2px solid var(--accent-cyan);
     transform: rotate(45deg);
-    opacity: 0.7;
+    opacity: 0.6;
     animation: bob 1.8s ease-in-out infinite;
   }
-
   @keyframes bob {
     0%, 100% { transform: rotate(45deg) translate(0,0); }
     50% { transform: rotate(45deg) translate(6px, 6px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scroll-cue { animation: none; }
+  }
+
+  /* ---- Pillars ---- */
+  .pillar-grid {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.6fr);
+    gap: clamp(2rem, 6vw, 5rem);
+    max-width: 1180px;
+    margin: 0 auto;
+    align-items: start;
+  }
+  .pillar:nth-of-type(even) .pillar-grid { direction: rtl; }
+  .pillar:nth-of-type(even) .pillar-grid > * { direction: ltr; }
+
+  .pillar-head { position: sticky; top: 7rem; }
+  .pillar-num {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--ink-3);
+    letter-spacing: 0.1em;
+    margin-bottom: 0.9rem;
+  }
+  .pillar-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--accent-cyan);
+    margin-bottom: 0.6rem;
+  }
+  .pillar-head h2 {
+    font-size: clamp(1.9rem, 3.6vw, 2.7rem);
+    font-weight: 700;
+    color: var(--ink-1);
+    line-height: 1.08;
+  }
+
+  .pillar-quote {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(1.15rem, 2vw, 1.45rem);
+    line-height: 1.5;
+    color: var(--ink-1);
+    padding-left: 1.2rem;
+    border-left: 2px solid var(--accent-line);
+  }
+  .pillar-value {
+    margin-top: 1.6rem;
+    max-width: 60ch;
+    font-size: 1.02rem;
+    line-height: 1.7;
+    color: var(--ink-2);
+  }
+
+  .tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    list-style: none;
+    padding: 0;
+    margin: 2rem 0 0;
+  }
+  .tag-list li {
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    letter-spacing: 0.04em;
+    color: var(--ink-1);
+    border: 1px solid rgba(183, 196, 230, 0.22);
+    border-radius: 999px;
+    padding: 0.5em 1em;
+    background: rgba(11, 18, 38, 0.4);
+  }
+
+  @media (max-width: 860px) {
+    .pillar-grid { grid-template-columns: 1fr; }
+    .pillar:nth-of-type(even) .pillar-grid { direction: ltr; }
+    .pillar-head { position: static; }
+  }
+
+  /* ---- Closing / contact ---- */
+  .closing {
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+  }
+  .closing-inner { max-width: 780px; margin: 0 auto; }
+  .closing-statement {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    line-height: 1.55;
+    color: var(--ink-1);
+  }
+  .closing-statement strong {
+    color: var(--accent-cyan);
+    font-weight: 700;
+  }
+  .closing h3 {
+    margin-top: 3rem;
+    font-size: clamp(1.6rem, 3.4vw, 2.3rem);
+    color: var(--ink-1);
+    font-weight: 700;
+  }
+
+  footer {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2.2rem clamp(1.5rem, 6vw, 5rem) calc(2.2rem + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid rgba(183,196,230,0.12);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--ink-3);
   }
 </style>
 </head>
@@ -103,30 +336,105 @@
 
 <canvas id="synapse-canvas"></canvas>
 
+<header>
+  <span class="logo"><span class="j">j</span><span class="ai">AI</span><span class="studio">Studio</span></span>
+  <nav>
+    <a href="#intelligence">Intelligence</a>
+    <a href="#craft">Craft</a>
+    <a href="#strategy">Strategy</a>
+    <a href="#contact" class="contact-link">Contact</a>
+  </nav>
+</header>
+
 <main>
-  <section>
-    <div class="eyebrow">Move your cursor · Scroll to travel</div>
-    <h1>We think in networks.</h1>
-    <p>Every idea fires across a thousand connections before it becomes work worth shipping. Touch the field below and watch a signal find its way to the next junction.</p>
-    <div class="scroll-arrow"></div>
+
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="eyebrow">jAI Studio — AI-Native Marketing</div>
+      <h1>Found. Noticed. Chosen.</h1>
+      <p class="subhead">The intelligence behind getting found, the craft behind getting noticed, the strategy behind getting chosen.</p>
+      <p class="value-line">Most agencies chase one of these. We engineer all three, together — so every part of the funnel is pulling in the same direction.</p>
+      <a class="cta" href="#contact">Start the Conversation</a>
+      <div class="scroll-cue"></div>
+    </div>
   </section>
 
-  <section>
-    <h2>Creative, wired for results.</h2>
-    <p>Scroll to move deeper through the network. Each junction you pass carries a spark — creative, function, innovation, value — the currents behind marketing that actually performs.</p>
+  <section class="pillar" id="intelligence">
+    <div class="pillar-grid">
+      <div class="pillar-head">
+        <span class="pillar-num">01 / 03</span>
+        <span class="pillar-label">Intelligence</span>
+        <h2>Getting Found</h2>
+      </div>
+      <div class="pillar-body">
+        <p class="pillar-quote">"We make sure the algorithms — search engines and AI engines alike — put you in front of the people looking for you."</p>
+        <p class="pillar-value">Your next client is already searching — on Google, and increasingly by asking ChatGPT, Gemini, or Perplexity who's worth calling. Optimize for only one of those and you're invisible in exactly the moment someone was ready to hire you. We build for both, so the algorithms keep pointing your way.</p>
+        <ul class="tag-list">
+          <li>SEO</li>
+          <li>AEO — Answer Engine Optimization</li>
+          <li>GEO — Generative Engine Optimization</li>
+          <li>Google Business Profile &amp; Local Search</li>
+          <li>Technical SEO Audits &amp; Site Architecture</li>
+        </ul>
+      </div>
+    </div>
   </section>
 
-  <section>
-    <h2>Signal in, insight out.</h2>
-    <p>Drag your finger or mouse across the field. The nearest line lights up and carries a pulse to the next node, flaring a word before it fades — the way a good idea actually spreads.</p>
+  <section class="pillar" id="craft">
+    <div class="pillar-grid">
+      <div class="pillar-head">
+        <span class="pillar-num">02 / 03</span>
+        <span class="pillar-label">Craft</span>
+        <h2>Getting Noticed</h2>
+      </div>
+      <div class="pillar-body">
+        <p class="pillar-quote">"Being found doesn't matter if you're forgettable the moment someone looks. We design for the first three seconds."</p>
+        <p class="pillar-value">A cluttered site or an off-brand feed tells a stranger you're not serious before they've read a word. We design the web experience, brand identity, and content that make someone stop scrolling, take you seriously, and keep looking — because being found only to be forgotten is the same as never being found at all.</p>
+        <ul class="tag-list">
+          <li>Web Design &amp; Development</li>
+          <li>Brand Identity &amp; Visual Systems</li>
+          <li>Content Design — Social, Ads, Video</li>
+          <li>UX / UI That Converts</li>
+        </ul>
+      </div>
+    </div>
   </section>
 
-  <section>
-    <h2>Built for momentum.</h2>
-    <p>Keep scrolling. The network keeps unfolding.</p>
-    <div class="hint">This is a live background demo — resize, scroll, and move your pointer freely.</div>
+  <section class="pillar" id="strategy">
+    <div class="pillar-grid">
+      <div class="pillar-head">
+        <span class="pillar-num">03 / 03</span>
+        <span class="pillar-label">Strategy</span>
+        <h2>Getting Chosen</h2>
+      </div>
+      <div class="pillar-body">
+        <p class="pillar-quote">"Attention isn't the finish line — the decision is. We build the case that makes you the obvious choice."</p>
+        <p class="pillar-value">Someone who finds you and likes what they see still opens two more tabs to compare you against the competition. We build the positioning and messaging that make choosing anyone else feel like the wrong call — so the comparison ends with you.</p>
+        <ul class="tag-list">
+          <li>Positioning &amp; Brand Voice</li>
+          <li>Copywriting &amp; Content Strategy</li>
+          <li>Conversion-Focused Messaging Frameworks</li>
+          <li>Competitive Differentiation</li>
+        </ul>
+      </div>
+    </div>
   </section>
+
+  <section class="closing" id="contact">
+    <div class="closing-inner">
+      <div class="eyebrow">How It Connects</div>
+      <p class="closing-statement">Search gets you in the room. Design gets you noticed once you're there. Strategy gets you picked. <strong>jAI Studio builds all three, together</strong> — because a brand that's only strong in one of these areas is a brand that's easy to overlook.</p>
+      <h3>Ready to be the obvious choice?</h3>
+      <a class="cta" href="mailto:hello@jaistudio.com">Start the Conversation</a>
+    </div>
+  </section>
+
 </main>
+
+<footer>
+  <span class="logo"><span class="j">j</span><span class="ai">AI</span><span class="studio">Studio</span></span>
+  <span>&copy; 2026 jAI Studio. Intelligence, craft, and strategy — together.</span>
+</footer>
 
 <script src="synapses.js"></script>
 </body>

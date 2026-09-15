@@ -7,24 +7,31 @@
   // ---------------------------------------------------------------------
   // Config
   // ---------------------------------------------------------------------
-  const NODE_COUNT = 420;
-  const WORLD_X = 1100;
-  const WORLD_Y = 750;
-  const TOTAL_DEPTH = 3600;
-  const FOCAL = 480;
-  const NEAR_CLIP = 30;
+  const NODE_COUNT = 560;
+  const WORLD_X = 1300;
+  const WORLD_Y = 850;
+  const TOTAL_DEPTH = 6400;
+  const FOCAL = 460;
+  const NEAR_CLIP = 26;
   const FAR_CLIP = 1500;
-  const CONNECT_MAX_DIST = 260;
+  const CONNECT_MAX_DIST = 320;
   const MAX_NEIGHBORS = 3;
   const ACCENT_RATIO = 0.14;
 
+  const DUST_COUNT = 260;
+  const DUST_FAR_CLIP = 2800;
+
+  const STREAK_VELOCITY_THRESHOLD = 0.8; // world units/frame before streaks appear
+  const STREAK_DEPTH_LIMIT = 260; // only nodes this close to camera streak
+
+  // Vocabulary drawn from jAI Studio's own pillars, not generic filler.
   const WORDS = [
-    "Creative", "Innovation", "Function", "Value", "Vision", "Impact",
-    "Growth", "Strategy", "Momentum", "Brand", "Reach", "Results",
-    "Insight", "Spark", "Craft", "Bold"
+    "Intelligence", "Craft", "Strategy", "Findable", "Noticed", "Chosen",
+    "Visibility", "Attention", "Conversion", "Positioning", "Distinction",
+    "Momentum", "SEO", "AEO", "GEO", "Obvious"
   ];
 
-  const BLUE = [110, 175, 255];
+  const BLUE = [92, 178, 250];
   const AMBER = [255, 165, 80];
 
   // ---------------------------------------------------------------------
@@ -33,16 +40,18 @@
   let dpr = Math.min(window.devicePixelRatio || 1, 2);
   let width = 0, height = 0;
 
-  const camera = { z: 0, targetZ: 0, x: 0, y: 0 };
+  const camera = { z: 0, targetZ: 0, prevZ: 0, x: 0, y: 0 };
   const pointer = { x: null, y: null, lastSpawn: 0 };
 
   let nodes = [];
+  let dust = [];
   let edges = [];
   let visibleEdges = []; // recomputed each frame: projected screen coords
   let signals = [];
   let flares = [];
   let lastWord = null;
   let startTime = performance.now();
+  const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // ---------------------------------------------------------------------
   // Setup
@@ -103,6 +112,19 @@
     });
   }
 
+  function buildDust() {
+    dust = [];
+    for (let i = 0; i < DUST_COUNT; i++) {
+      dust.push({
+        x: (Math.random() * 2 - 1) * WORLD_X * 1.6,
+        y: (Math.random() * 2 - 1) * WORLD_Y * 1.6,
+        z: Math.random() * TOTAL_DEPTH,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.3 + Math.random() * 0.5
+      });
+    }
+  }
+
   // ---------------------------------------------------------------------
   // Scroll -> camera depth
   // ---------------------------------------------------------------------
@@ -116,16 +138,17 @@
   // ---------------------------------------------------------------------
   // Projection
   // ---------------------------------------------------------------------
-  function project(node, t) {
-    const depth = node.z - camera.z;
-    if (depth < NEAR_CLIP || depth > FAR_CLIP) return null;
+  function project(node, t, camZ, camX, camY, farClip) {
+    const depth = node.z - camZ;
+    const far = farClip || FAR_CLIP;
+    if (depth < NEAR_CLIP || depth > far) return null;
     const scale = FOCAL / depth;
-    const wobbleX = Math.sin(t * 0.0004 * node.speed + node.phase) * 6;
-    const wobbleY = Math.cos(t * 0.00035 * node.speed + node.phase) * 6;
-    const sx = width / 2 + (node.x - camera.x + wobbleX) * scale;
-    const sy = height / 2 + (node.y - camera.y + wobbleY) * scale;
+    const wobbleX = reduceMotion ? 0 : Math.sin(t * 0.0004 * node.speed + node.phase) * 6;
+    const wobbleY = reduceMotion ? 0 : Math.cos(t * 0.00035 * node.speed + node.phase) * 6;
+    const sx = width / 2 + (node.x - camX + wobbleX) * scale;
+    const sy = height / 2 + (node.y - camY + wobbleY) * scale;
     const fadeNear = Math.min(1, (depth - NEAR_CLIP) / 120);
-    const fadeFar = Math.min(1, (FAR_CLIP - depth) / 400);
+    const fadeFar = Math.min(1, (far - depth) / (far * 0.28));
     const alpha = Math.max(0, Math.min(fadeNear, fadeFar));
     return { x: sx, y: sy, scale, depth, alpha };
   }
@@ -222,8 +245,23 @@
   // Frame loop
   // ---------------------------------------------------------------------
   function drawBackgroundDrift(t) {
+    if (reduceMotion) return;
     camera.x = Math.sin(t * 0.00006) * 40;
     camera.y = Math.cos(t * 0.00008) * 24;
+  }
+
+  function drawDust(t) {
+    for (const d of dust) {
+      const p = project(d, t, camera.z, camera.x, camera.y, DUST_FAR_CLIP);
+      if (!p || p.alpha <= 0.01) continue;
+      const twinkle = 0.5 + 0.5 * Math.sin(t * 0.0012 * d.speed + d.phase);
+      const r = Math.max(0.4, p.scale * 1.1);
+      const alpha = p.alpha * 0.35 * twinkle;
+      ctx.fillStyle = `rgba(150,190,255,${alpha})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   function drawEdges(t) {
@@ -231,8 +269,8 @@
     ctx.lineCap = "round";
     for (const e of edges) {
       const a = nodes[e.a], b = nodes[e.b];
-      const pa = project(a, t);
-      const pb = project(b, t);
+      const pa = project(a, t, camera.z, camera.x, camera.y);
+      const pb = project(b, t, camera.z, camera.x, camera.y);
       if (!pa || !pb) continue;
       if (pa.alpha <= 0.02 && pb.alpha <= 0.02) continue;
 
@@ -251,9 +289,10 @@
     }
   }
 
-  function drawNodes(t) {
+  function drawNodes(t, velocity) {
+    const streaking = !reduceMotion && Math.abs(velocity) > STREAK_VELOCITY_THRESHOLD;
     for (const n of nodes) {
-      const p = project(n, t);
+      const p = project(n, t, camera.z, camera.x, camera.y);
       if (!p || p.alpha <= 0.02) continue;
 
       const twinkle = 0.75 + 0.25 * Math.sin(t * 0.002 * n.speed + n.phase);
@@ -264,6 +303,24 @@
       const r = baseR + flareBoost * baseR * 3.5;
       const color = n.accent ? AMBER : BLUE;
       const alpha = p.alpha * (0.55 + flareBoost * 0.45);
+
+      // Streak: near, fast-approaching nodes draw as a light trail rather
+      // than a dot, selling the sense of travelling deeper through the field.
+      if (streaking && p.depth < STREAK_DEPTH_LIMIT && flareBoost === 0) {
+        const pPrev = project(n, t, camera.prevZ, camera.x, camera.y);
+        if (pPrev) {
+          const grad = ctx.createLinearGradient(pPrev.x, pPrev.y, p.x, p.y);
+          grad.addColorStop(0, `rgba(${color[0]},${color[1]},${color[2]},0)`);
+          grad.addColorStop(1, `rgba(${color[0]},${color[1]},${color[2]},${Math.min(1, alpha * 1.4)})`);
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = Math.max(0.8, r * 0.6);
+          ctx.lineCap = "round";
+          ctx.beginPath();
+          ctx.moveTo(pPrev.x, pPrev.y);
+          ctx.lineTo(p.x, p.y);
+          ctx.stroke();
+        }
+      }
 
       const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 4);
       glow.addColorStop(0, `rgba(${color[0]},${color[1]},${color[2]},${alpha})`);
@@ -353,7 +410,7 @@
       ctx.save();
       ctx.translate(f.x, f.y - 26 - rise);
       ctx.scale(scale, scale);
-      ctx.font = "600 20px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+      ctx.font = "600 20px 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.shadowColor = `rgba(150,200,255,${alpha})`;
@@ -364,18 +421,31 @@
     }
   }
 
+  function drawVignette() {
+    const r = Math.max(width, height) * 0.75;
+    const g = ctx.createRadialGradient(width / 2, height / 2, r * 0.35, width / 2, height / 2, r);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(1, "rgba(2,3,8,0.55)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, width, height);
+  }
+
   function frame() {
     const now = performance.now();
     const t = now - startTime;
 
-    camera.z += (camera.targetZ - camera.z) * 0.06;
+    camera.prevZ = camera.z;
+    camera.z = reduceMotion ? camera.targetZ : camera.z + (camera.targetZ - camera.z) * 0.08;
+    const velocity = camera.z - camera.prevZ;
 
     ctx.clearRect(0, 0, width, height);
     drawBackgroundDrift(t);
+    drawDust(t);
     drawEdges(t);
-    drawNodes(t);
+    drawNodes(t, velocity);
     drawSignals(now);
     drawFlares(now);
+    drawVignette();
 
     requestAnimationFrame(frame);
   }
@@ -385,7 +455,10 @@
   // ---------------------------------------------------------------------
   resize();
   buildNetwork();
+  buildDust();
   updateCameraTarget();
+  camera.z = camera.targetZ;
+  camera.prevZ = camera.z;
 
   window.addEventListener("resize", () => { resize(); });
   window.addEventListener("scroll", updateCameraTarget, { passive: true });
