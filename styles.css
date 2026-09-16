@@ -836,6 +836,12 @@ footer button:hover { color: var(--accent-cyan); }
 .site-menu-panel button:hover,
 .site-menu-panel button:focus-visible { background: rgba(95, 205, 251, 0.1); color: var(--accent-cyan); }
 .site-menu-panel a.active { color: var(--accent-cyan); }
+.site-menu-panel a.site-menu-sub {
+  padding-left: 1.6rem;
+  font-size: 0.76rem;
+  color: var(--ink-3);
+}
+.site-menu-panel a.site-menu-sub.active { color: var(--accent-cyan); }
 .site-menu-panel a.site-menu-contact,
 .site-menu-panel button.site-menu-contact {
   margin-top: 0.3rem;
