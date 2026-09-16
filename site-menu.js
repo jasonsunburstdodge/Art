@@ -1,6 +1,19 @@
 (() => {
   "use strict";
 
+  // Every internal link is a full page navigation between static pages.
+  // Without this, some browsers (mobile Safari especially) restore the
+  // scroll position a page was left at last time instead of starting at
+  // the top, and back/forward navigation can do the same. Force every
+  // fresh load to the top unless the URL points at an in-page anchor
+  // (e.g. index.html#contact), which should still scroll to that section.
+  if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+  if (!window.location.hash) window.scrollTo(0, 0);
+})();
+
+(() => {
+  "use strict";
+
   const toggle = document.querySelector(".site-menu-toggle");
   const panel = document.getElementById("site-menu-panel");
   if (!toggle || !panel) return;
