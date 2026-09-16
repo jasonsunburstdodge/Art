@@ -3,12 +3,23 @@
 
   // Every internal link is a full page navigation between static pages.
   // Without this, some browsers (mobile Safari especially) restore the
-  // scroll position a page was left at last time instead of starting at
-  // the top, and back/forward navigation can do the same. Force every
-  // fresh load to the top unless the URL points at an in-page anchor
+  // scroll position a page was left at last time it was open, instead of
+  // starting at the top, whether that page is reached by clicking a link,
+  // by going back/forward, or by the browser serving it from its
+  // back/forward cache (which skips a normal load entirely, so a plain
+  // load-time scrollTo alone can still miss it). Force every one of those
+  // to the top unless the URL points at an in-page anchor
   // (e.g. index.html#contact), which should still scroll to that section.
   if ("scrollRestoration" in history) history.scrollRestoration = "manual";
-  if (!window.location.hash) window.scrollTo(0, 0);
+
+  function resetScroll() {
+    if (!window.location.hash) window.scrollTo(0, 0);
+  }
+
+  resetScroll();
+  document.addEventListener("DOMContentLoaded", resetScroll);
+  window.addEventListener("load", resetScroll);
+  window.addEventListener("pageshow", resetScroll);
 })();
 
 (() => {
