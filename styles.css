@@ -62,22 +62,14 @@ header {
 
 .logo {
   display: inline-flex;
-  align-items: baseline;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.35rem;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
+  align-items: center;
   text-decoration: none;
 }
-.logo .j { color: var(--ink-1); }
-.logo .ai {
-  background: linear-gradient(160deg, var(--accent-cyan) 0%, var(--accent-blue) 55%, var(--accent-deep) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+.logo img {
+  height: 34px;
+  width: auto;
+  display: block;
 }
-.logo .studio { color: var(--ink-1); margin-left: 0.28em; }
 
 nav {
   display: flex;
@@ -478,6 +470,9 @@ footer a:hover { color: var(--accent-cyan); }
   line-height: 1.15;
   color: var(--ink-1);
   font-size: clamp(0.9rem, 4.6vw, 2.4rem);
+}
+.page-hero .hero-sub .hero-line.hero-accent {
+  color: var(--accent-cyan);
 }
 
 /* Match the homepage hero's spacing and type scale exactly, on pages that

@@ -29,7 +29,7 @@
 
   const ACCENT_RATIO = theme.accentRatio != null ? theme.accentRatio : 0.14;
 
-  // Default vocabulary drawn from jAI Studio's own pillars, not generic filler.
+  // Default vocabulary drawn from SilverXis's own pillars, not generic filler.
   const WORDS = theme.words || [
     "Intelligence", "Craft", "Strategy", "Findable", "Noticed", "Chosen",
     "Visibility", "Attention", "Conversion", "Positioning", "Distinction",
