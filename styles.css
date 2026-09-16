@@ -351,6 +351,15 @@ a { color: var(--accent-cyan); }
   transition: color 0.2s ease, border-color 0.2s ease;
 }
 .pillar-more:hover { color: var(--ink-1); border-color: var(--accent-cyan); }
+button.pillar-more {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--accent-line);
+  border-radius: 0;
+  padding: 0 0 0.2em;
+  cursor: pointer;
+}
 
 /* ---- Closing / contact ---- */
 .closing {
