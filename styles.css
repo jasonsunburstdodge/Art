@@ -377,6 +377,31 @@ button.pillar-more {
   cursor: pointer;
 }
 
+/* ---- Free assessment callout panel within a pillar ---- */
+.pillar-assessment {
+  margin-top: 2.4rem;
+  padding: 1.6rem 1.8rem;
+  border: 1px solid rgba(183, 196, 230, 0.18);
+  border-radius: 14px;
+  background: rgba(11, 18, 38, 0.35);
+  max-width: 60ch;
+}
+.pillar-assessment h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ink-1);
+  margin-bottom: 0.6rem;
+}
+.pillar-assessment p {
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--ink-2);
+}
+.pillar-assessment .cta-group {
+  margin-top: 1.3rem;
+  gap: 1.2rem 1.6rem;
+}
+
 /* ---- Closing / contact ---- */
 .closing {
   flex-direction: column;
