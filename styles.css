@@ -514,6 +514,10 @@ footer a:hover { color: var(--accent-cyan); }
 .page-copy p + p, .page-copy ul + p, .page-copy p + ul { margin-top: 1em; }
 .page-copy ul.list-plain { margin-top: 0.4em; }
 .page-copy strong { color: var(--ink-1); }
+.page-copy + .pillar-more {
+  display: inline-block;
+  margin-top: 1.4rem;
+}
 
 .cta-group { display: flex; flex-wrap: wrap; align-items: center; gap: 1.6rem; margin-top: 2.6rem; }
 .cta-group .cta, .cta-group .pillar-more { margin-top: 0; }
