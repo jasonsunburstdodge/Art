@@ -38,7 +38,7 @@
     });
   }
 
-  function render(kind, title) {
+  function render(kind, title, prefillNotes) {
     const callNow = kind === "contact"
       ? `<a class="audit-call-now" href="${PHONE_TEL}">Prefer to talk now? Call ${PHONE_DISPLAY} &rarr;</a>`
       : "";
@@ -63,6 +63,11 @@
     const form = modal.querySelector("form");
     const notes = modal.querySelector("textarea[name=notes]");
     const count = modal.querySelector(".audit-char-count-num");
+
+    if (prefillNotes) {
+      notes.value = prefillNotes;
+      count.textContent = notes.value.length;
+    }
 
     modal.querySelector(".audit-modal-close").addEventListener("click", close);
     notes.addEventListener("input", () => {
@@ -93,10 +98,10 @@
     }
   }
 
-  function open(kind, title, trigger) {
+  function open(kind, title, trigger, prefillNotes) {
     if (!overlay) buildOverlay();
     lastTrigger = trigger || null;
-    render(kind, title);
+    render(kind, title, prefillNotes);
     overlay.hidden = false;
     document.body.style.overflow = "hidden";
     const firstField = modal.querySelector("input");
@@ -123,4 +128,12 @@
       open("contact", "Contact SilverXis", contactTrigger);
     }
   });
+
+  // Public hook so other widgets (the Ask SilverXis chatbot) can hand a
+  // question off to a human via this same contact form.
+  window.SilverXisContact = {
+    openWithMessage(message) {
+      open("contact", "Contact SilverXis", null, message);
+    }
+  };
 })();
