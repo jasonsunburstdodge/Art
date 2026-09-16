@@ -107,8 +107,24 @@ nav button.contact-link:hover {
   border-color: var(--accent-cyan);
   background: rgba(95, 205, 251, 0.08);
 }
+nav a.header-phone {
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+nav a.header-phone:hover { color: var(--accent-cyan); }
 @media (max-width: 720px) {
-  header nav a:not(.contact-link) { display: none; }
+  header nav a:not(.contact-link):not(.header-phone) { display: none; }
+}
+@media (max-width: 480px) {
+  header .logo img { height: 48px; }
+  nav a.header-phone { font-size: 0.62rem; }
+}
+@media (max-width: 360px) {
+  header { padding-left: 1rem; padding-right: 1rem; }
+  header nav { gap: 0.6rem; }
+  header .logo img { height: 38px; }
+  nav a.header-phone { font-size: 0.52rem; }
+  nav a.contact-link, nav button.contact-link { padding: 0.4em 0.8em; }
 }
 
 /* ---------------------------------------------------------------- */
