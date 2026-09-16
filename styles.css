@@ -722,6 +722,17 @@ footer button:hover { color: var(--accent-cyan); }
 }
 .cluster-card p { font-size: 0.92rem; line-height: 1.55; color: var(--ink-3); }
 .cluster-card .hub-link { display: inline-block; margin-top: 0.9rem; }
+a.cluster-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+a.cluster-card:hover,
+a.cluster-card:focus-visible {
+  border-color: var(--accent-cyan);
+  background: rgba(95, 205, 251, 0.08);
+}
 
 .audit-list {
   margin: 1.4rem 0 0;
