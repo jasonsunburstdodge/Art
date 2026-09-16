@@ -479,6 +479,34 @@ footer a:hover { color: var(--accent-cyan); }
   color: var(--ink-1);
   font-size: clamp(0.9rem, 4.6vw, 2.4rem);
 }
+
+/* Match the homepage hero's spacing and type scale exactly, on pages that
+   opt in. Scoped to >=640px: below that, the longer "Visibility Creates
+   Opportunity" headline (unlike the homepage's short single-word lines)
+   sits close enough to the floating menu button that the homepage's much
+   larger mobile type scale would overlap it, so mobile keeps the
+   already-tuned .page-hero sizing above instead. */
+@media (min-width: 640px) {
+  .page-hero.hero-match-home {
+    min-height: 100vh;
+    padding: clamp(6rem, 12vh, 9rem) clamp(1.5rem, 6vw, 5rem);
+  }
+  .hero-match-home .page-hero-inner { max-width: 900px; }
+  .hero-match-home .eyebrow {
+    font-size: clamp(0.44rem, 2.1vw, 0.72rem);
+    letter-spacing: clamp(0.09em, 0.9vw, 0.22em);
+  }
+  .hero-match-home h1 {
+    font-size: clamp(2.6rem, 7vw, 5.4rem);
+    line-height: 1.03;
+  }
+  .hero-match-home .hero-sub {
+    margin-top: 1.5rem;
+  }
+  .hero-match-home .hero-sub .hero-line {
+    font-size: clamp(1.3rem, 5.6vw, 3.2rem);
+  }
+}
 .page-hero .page-intro {
   margin: 1.4rem auto 0;
   max-width: 680px;
