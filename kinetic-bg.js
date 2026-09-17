@@ -202,7 +202,7 @@
       wordEls[wordIdx].classList.remove("is-active");
       wordIdx = (wordIdx + 1) % wordEls.length;
       wordEls[wordIdx].classList.add("is-active");
-    }, 3200);
+    }, 6400);
   }
 
   // ---------------------------------------------------------------------
@@ -212,8 +212,8 @@
   // together, so they all fade in and out in lockstep.
   // ---------------------------------------------------------------------
   const FADE_REST = 0.12;
-  const FADE_IN_MS = 160;
-  const FADE_OUT_MS = 160;
+  const FADE_IN_MS = 320;
+  const FADE_OUT_MS = 320;
   let fade = FADE_REST;
   let fadeTarget = FADE_REST;
   let fadeRateMs = FADE_OUT_MS;
@@ -243,7 +243,7 @@
   // ---------------------------------------------------------------------
   // Frame loop
   // ---------------------------------------------------------------------
-  const ANGULAR_SPEED = (Math.PI * 2) / 104000; // one full lap ~104s (quarter of original speed)
+  const ANGULAR_SPEED = (Math.PI * 2) / 208000; // one full lap ~208s (eighth of original speed)
 
   function frame(now) {
     const dt = lastFrameTime != null ? now - lastFrameTime : 16;
