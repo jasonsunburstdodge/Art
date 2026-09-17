@@ -3,10 +3,11 @@
 
   // Homepage-only background: a circuit-city flythrough. Scrolling moves the
   // camera forward through a canyon of close, oversized skyscrapers whose
-  // facades are dark circuit-board glass until a pulse reaches them and
-  // races up the surface, lighting a vertical word letter by letter. One
-  // continuous city; each pillar section only changes which words appear,
-  // how fast pulses move, and how open the canyon is. No node webs, no
+  // facades are dark circuit-board glass with pulses of light racing along
+  // the street and up their surfaces. As you scroll, big words light up in
+  // the open sky between the buildings — near the horizon, where the canyon
+  // opens up — hold there, then fade, cycling through whichever pillar's
+  // vocabulary the camera is currently passing through. No node webs, no
   // literal neural network — everything is street, tower, bridge and pulse.
 
   const canvas = document.getElementById("synapse-canvas");
@@ -104,7 +105,6 @@
   }
 
   const WORDS = {
-    hero: ["SILVERXIS", "FORWARD", "MOMENTUM"],
     build: ["BUILD", "CREATE", "INNOVATE", "DEVELOP", "AUTOMATE", "INTEGRATE", "MODERNIZE", "TRANSFORM", "SOLVE", "SCALE"],
     connect: ["CONNECT", "TALENT", "TEAMS", "EXPERTISE", "CAPABILITY", "SUPPORT", "AUGMENT", "COLLABORATE", "EMPOWER", "DELIVER"],
     find: ["FIND", "DISCOVER", "VISIBLE", "ATTRACT", "ENGAGE", "REACH", "INFLUENCE", "CONVERT", "DEMAND", "OPPORTUNITY"],
@@ -135,27 +135,13 @@
 
   function generateWall(side) {
     const wall = [];
-    const counters = { hero: 0, build: 0, connect: 0, find: 0, scale: 0 };
-    const climaxStart = bounds.find[1] - CLIMAX_WORDS.length * 95;
     let z = 40 + Math.random() * 60;
-    let climaxIdx = 0;
     while (z < worldLength) {
       const segLen = 85 + Math.random() * 90;
       const district = districtAt(z + segLen * 0.3);
-      let word = null;
-      if (z >= climaxStart && z < bounds.find[1] && climaxIdx < CLIMAX_WORDS.length && (side < 0) === (climaxIdx % 2 === 0)) {
-        word = CLIMAX_WORDS[climaxIdx++];
-      } else if (district === "hero") {
-        if (Math.random() < 0.35) word = WORDS.hero[counters.hero++ % WORDS.hero.length];
-      } else {
-        const list = WORDS[district];
-        word = list[counters[district]++ % list.length];
-      }
       wall.push({
         zStart: z, zEnd: z + segLen, side, district,
-        wallX: () => 0, // set at draw time via halfWidthAt(z)
         height: district === "build" ? 480 + Math.random() * 480 : 380 + Math.random() * 520,
-        word,
         climbSpan: district === "scale" ? 16 : district === "find" ? 34 : district === "connect" ? 46 : 55
       });
       z += segLen + 30 + Math.random() * 70;
@@ -255,9 +241,11 @@
   }
 
   // ---------------------------------------------------------------------
-  // Buildings: mullion lines + a bottom-to-top illuminated vertical word.
+  // Buildings: mullion lines, story ticks, and the pulse that races up the
+  // facade once the street energy reaches it. Words no longer live here —
+  // see drawSkyWord below.
   // ---------------------------------------------------------------------
-  function drawBuilding(b, now) {
+  function drawBuilding(b) {
     if (b.zEnd < camZ - 40 || b.zStart > camZ + FAR) return;
     const wallXAt = (z) => pathX(z) + b.side * halfWidthAt(z);
     const refZ = Math.max(b.zStart, camZ + NEAR + 1);
@@ -329,28 +317,6 @@
         ctx.shadowBlur = 0;
       }
     }
-
-    if (!b.word) return;
-    const letters = b.word.split("");
-    const n = letters.length;
-    const spacing = 34;
-    const fontPx = Math.max(0, 22 * base.scale);
-    if (fontPx < 3) return;
-    ctx.font = `700 ${fontPx}px 'IBM Plex Mono', ui-monospace, monospace`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    for (let i = 0; i < n; i++) {
-      const lit = smoothstep(i / n, (i + 1) / n, climb);
-      if (lit <= 0.02) continue;
-      const wy = 60 + i * spacing;
-      const p = project(wallX, wy, refZ);
-      if (!p || p.alpha <= 0.02) continue;
-      ctx.fillStyle = rgba(lit > 0.98 ? WHITE : CYAN, Math.min(0.95, lit) * p.alpha);
-      ctx.shadowColor = rgba(CYAN, 0.8 * lit * p.alpha);
-      ctx.shadowBlur = 6 * lit;
-      ctx.fillText(letters[i], p.x, p.y);
-    }
-    ctx.shadowBlur = 0;
   }
 
   // ---------------------------------------------------------------------
@@ -419,6 +385,53 @@
       ctx.fillText(ch, p.x, p.y);
     }
     ctx.shadowBlur = 0;
+  }
+
+  // ---------------------------------------------------------------------
+  // Sky words: big text that lights up in the open gap between the two
+  // walls of buildings, near the horizon, holds, then fades — one word per
+  // fixed stretch of world distance, so a new one only appears by scrolling
+  // further into it. Which list plays is just whichever district camZ is
+  // in; the FIND finale gets its own slower, dedicated slots.
+  // ---------------------------------------------------------------------
+  const WORD_SPACING = 320;
+  const CLIMAX_SPACING = 260;
+
+  function skyWordAt(z) {
+    const climaxStart = bounds.find[1] - CLIMAX_WORDS.length * CLIMAX_SPACING;
+    if (z >= climaxStart && z < bounds.find[1]) {
+      const idx = Math.min(CLIMAX_WORDS.length - 1, Math.floor((z - climaxStart) / CLIMAX_SPACING));
+      return { word: CLIMAX_WORDS[idx], slotStart: climaxStart + idx * CLIMAX_SPACING, slotSpan: CLIMAX_SPACING };
+    }
+    const district = districtAt(z);
+    const list = WORDS[district];
+    if (!list || !list.length) return null;
+    const districtStart = district === "hero" ? 0 : district === "scale" ? bounds.scaleStart : bounds[district][0];
+    const idx = Math.floor((z - districtStart) / WORD_SPACING);
+    const word = list[((idx % list.length) + list.length) % list.length];
+    return { word, slotStart: districtStart + idx * WORD_SPACING, slotSpan: WORD_SPACING };
+  }
+
+  function drawSkyWord(sw) {
+    if (!sw) return;
+    const rel = clamp01((camZ - sw.slotStart) / sw.slotSpan);
+    const fadeIn = smoothstep(0, 0.12, rel);
+    const fadeOut = 1 - smoothstep(0.68, 1, rel);
+    const a = fadeIn * fadeOut;
+    if (a <= 0.01) return;
+
+    const fontPx = Math.min(width, height) * 0.1;
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.font = `800 ${fontPx}px 'IBM Plex Mono', ui-monospace, monospace`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = rgba(CYAN, 0.85);
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = rgba(WHITE, 1);
+    ctx.fillText(sw.word, cx, cy - height * 0.22);
+    ctx.shadowBlur = 0;
+    ctx.restore();
   }
 
   // ---------------------------------------------------------------------
@@ -528,9 +541,10 @@
       ctx.restore();
     }
 
-    for (const b of leftBuildings) drawBuilding(b, animNow);
-    for (const b of rightBuildings) drawBuilding(b, animNow);
+    for (const b of leftBuildings) drawBuilding(b);
+    for (const b of rightBuildings) drawBuilding(b);
     for (const j of junctions) drawJunction(j);
+    drawSkyWord(skyWordAt(camZ));
 
     ctx.restore();
     drawVignette();
