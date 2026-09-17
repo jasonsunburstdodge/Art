@@ -3,13 +3,16 @@
 
   // Homepage-only background: a circuit-city flythrough. Scrolling moves the
   // camera forward through a canyon of close, oversized skyscrapers whose
-  // facades are dark circuit-board glass. As you scroll, a big electric-blue
-  // word flashes in the open sky between the buildings — near the horizon,
-  // where the canyon opens up — then fades away almost immediately, cycling
-  // through whichever pillar's vocabulary the camera is currently passing
-  // through. The instant a word appears, every building sends an electric-
-  // blue pulse racing up its own facade in sync. No node webs, no literal
-  // neural network — everything is street, tower, bridge and pulse.
+  // facades are dark circuit-board glass. Crossing into a new stretch of a
+  // pillar's vocabulary spawns a big electric-blue word at a random spot in
+  // the open sky between the buildings; several can be in flight at once if
+  // you scroll briskly. Once spawned, a word's fade-in/hold/fade-out runs on
+  // its own clock — it keeps playing out, and every building keeps sending
+  // its synced electric-blue pulse up its own facade, even if the page stops
+  // scrolling mid-flash. Reduced-motion visitors get the same beats without
+  // the free-running clock: one word, tied strictly to scroll position, so
+  // nothing moves without their input. No node webs, no literal neural
+  // network — everything is street, tower, bridge and pulse.
 
   const canvas = document.getElementById("synapse-canvas");
   if (!canvas) return;
@@ -242,12 +245,13 @@
 
   // ---------------------------------------------------------------------
   // Buildings: mullion lines and story ticks, dark until a word appears.
-  // Each time one does, `flashRel` (shared by every building, driven by
-  // that same word's slot progress) sends an electric-blue pulse racing
-  // up every facade at once, then the glow drops out fast, matching the
-  // word's own quick fade. Words no longer live here — see drawSkyWord.
+  // Each time one does, `flash`/`climbT` (shared by every building, driven
+  // by that same word's own clock) send an electric-blue pulse racing up
+  // every facade at once; the pulse keeps climbing and the glow keeps
+  // fading on that clock even if scrolling has already stopped. Words no
+  // longer live here — see drawSkyWord.
   // ---------------------------------------------------------------------
-  function drawBuilding(b, flashRel) {
+  function drawBuilding(b, flash, climbT) {
     if (b.zEnd < camZ - 40 || b.zStart > camZ + FAR) return;
     const wallXAt = (z) => pathX(z) + b.side * halfWidthAt(z);
     const refZ = Math.max(b.zStart, camZ + NEAR + 1);
@@ -257,8 +261,6 @@
     if (!base || !top) return;
     const a = base.alpha;
     if (a <= 0.02) return;
-
-    const flash = flashRel === null ? 0 : wordEnvelope(flashRel);
 
     ctx.strokeStyle = rgba(DIM, 0.35 * a);
     ctx.lineWidth = 1;
@@ -300,7 +302,6 @@
       ctx.lineTo(top.x, top.y);
       ctx.stroke();
 
-      const climbT = clamp01(flashRel / 0.1);
       const p = project(wallX, climbT * b.height, refZ);
       if (p && p.alpha > 0.02) {
         ctx.fillStyle = rgba(CYAN, flash * p.alpha);
@@ -383,22 +384,39 @@
   }
 
   // ---------------------------------------------------------------------
-  // Sky words: big electric-blue text that lights up in the open gap
-  // between the two walls of buildings, near the horizon, then fades away
-  // immediately — one word per fixed stretch of world distance, so a new
-  // one only appears by scrolling further into it. Which list plays is
-  // just whichever district camZ is in; the FIND finale gets its own
-  // slower, dedicated slots. The same rise-and-drop envelope also drives
-  // the electric-blue pulse every building sends up its facade the moment
-  // a word appears — see drawBuilding.
+  // Sky words: big electric-blue text that lights up at a random spot in
+  // the open gap between the two walls of buildings, then fades away —
+  // one word slot per fixed stretch of world distance, so a new one only
+  // triggers by scrolling further into it. Which list plays is just
+  // whichever district camZ is in; the FIND finale gets its own slower,
+  // dedicated slots. Crossing into a slot only *spawns* the word; once
+  // spawned (see wordEvents below) its own fade-in/hold/fade-out clock —
+  // and the matching electric-blue pulse every building sends up its
+  // facade — keeps running in real time even after scrolling stops, and
+  // more than one can be in flight if slots are crossed quickly.
   // ---------------------------------------------------------------------
   const WORD_SPACING = 320;
   const CLIMAX_SPACING = 260;
+  const WORD_FADE_IN_MS = 120;
+  const WORD_HOLD_MS = 60;
+  const WORD_FADE_OUT_MS = 650;
+  const WORD_LIFESPAN_MS = WORD_FADE_IN_MS + WORD_HOLD_MS + WORD_FADE_OUT_MS;
+  const PULSE_CLIMB_MS = 260;
 
+  // Scroll-position envelope, used only for the reduced-motion fallback
+  // (kept strictly tied to camZ so nothing animates without user input).
   function wordEnvelope(rel) {
     const fadeIn = smoothstep(0, 0.06, rel);
     const fadeOut = 1 - smoothstep(0.1, 0.45, rel);
     return fadeIn * fadeOut;
+  }
+
+  // Real-time envelope for a spawned word/pulse event.
+  function timeEnvelope(ageMs) {
+    if (ageMs < 0 || ageMs > WORD_LIFESPAN_MS) return 0;
+    if (ageMs < WORD_FADE_IN_MS) return smoothstep(0, WORD_FADE_IN_MS, ageMs);
+    if (ageMs < WORD_FADE_IN_MS + WORD_HOLD_MS) return 1;
+    return 1 - smoothstep(WORD_FADE_IN_MS + WORD_HOLD_MS, WORD_LIFESPAN_MS, ageMs);
   }
 
   function skyWordAt(z) {
@@ -416,8 +434,21 @@
     return { word, slotStart: districtStart + idx * WORD_SPACING, slotSpan: WORD_SPACING };
   }
 
-  function drawSkyWord(sw, a) {
-    if (!sw || a <= 0.01) return;
+  let wordEvents = [];
+  let lastSlotKey = null;
+
+  function spawnWordEvent(word, spawnMs) {
+    const marginX = width * 0.16;
+    const x = marginX + Math.random() * Math.max(10, width - marginX * 2);
+    const yTop = Math.max(76, height * 0.14);
+    const yBottom = Math.max(yTop + 10, cy - height * 0.08);
+    const y = yTop + Math.random() * (yBottom - yTop);
+    wordEvents.push({ word, x, y, spawnMs });
+    if (wordEvents.length > 5) wordEvents.shift();
+  }
+
+  function drawSkyWord(word, x, y, a) {
+    if (a <= 0.01) return;
     const fontPx = Math.min(width, height) * 0.1;
     ctx.save();
     ctx.globalAlpha = a;
@@ -427,7 +458,7 @@
     ctx.shadowColor = rgba(CYAN, 0.9);
     ctx.shadowBlur = 20;
     ctx.fillStyle = rgba(CYAN, 1);
-    ctx.fillText(sw.word, cx, cy - height * 0.22);
+    ctx.fillText(word, x, y);
     ctx.shadowBlur = 0;
     ctx.restore();
   }
@@ -487,6 +518,8 @@
     buildCity();
     buildJunctions();
     buildRunners();
+    wordEvents = [];
+    lastSlotKey = null;
   }
 
   function resize() {
@@ -518,10 +551,31 @@
     camX = pathX(camZ);
 
     const sw = skyWordAt(camZ);
-    const flashRel = sw ? clamp01((camZ - sw.slotStart) / sw.slotSpan) : null;
-    const flashA = flashRel === null ? 0 : wordEnvelope(flashRel);
+    let flash = 0, climbT = 0;
 
-    lookUpBoost = Math.max(lookUpBoost * 0.9, flashA);
+    if (reduceMotion) {
+      // Strictly scroll-driven: freezes the instant scrolling stops.
+      const rel = sw ? clamp01((camZ - sw.slotStart) / sw.slotSpan) : null;
+      flash = rel === null ? 0 : wordEnvelope(rel);
+      climbT = rel === null ? 0 : clamp01(rel / 0.1);
+    } else {
+      // Crossing into a new word slot spawns an event; from then on its
+      // fade and the matching building pulse run on their own clock.
+      const slotKey = sw ? sw.slotStart : null;
+      if (slotKey !== null && slotKey !== lastSlotKey) {
+        lastSlotKey = slotKey;
+        spawnWordEvent(sw.word, animNow);
+      }
+      wordEvents = wordEvents.filter((e) => animNow - e.spawnMs <= WORD_LIFESPAN_MS);
+      for (const e of wordEvents) {
+        const age = animNow - e.spawnMs;
+        const a = timeEnvelope(age);
+        if (a > flash) { flash = a; climbT = clamp01(age / PULSE_CLIMB_MS); }
+      }
+    }
+
+    lookUpBoost = Math.max(lookUpBoost * 0.9, flash);
+    if (lookUpBoost < 0.002) lookUpBoost = 0;
     camY = eyeY(camZ) + lookUpBoost * 22;
 
     const boost = animNow < burstUntil ? 1.35 : 1;
@@ -544,10 +598,17 @@
       ctx.restore();
     }
 
-    for (const b of leftBuildings) drawBuilding(b, flashRel);
-    for (const b of rightBuildings) drawBuilding(b, flashRel);
+    for (const b of leftBuildings) drawBuilding(b, flash, climbT);
+    for (const b of rightBuildings) drawBuilding(b, flash, climbT);
     for (const j of junctions) drawJunction(j);
-    drawSkyWord(sw, flashA);
+
+    if (reduceMotion) {
+      if (sw) drawSkyWord(sw.word, cx, cy - height * 0.22, flash);
+    } else {
+      for (const e of wordEvents) {
+        drawSkyWord(e.word, e.x, e.y, timeEnvelope(animNow - e.spawnMs));
+      }
+    }
 
     ctx.restore();
     drawVignette();
