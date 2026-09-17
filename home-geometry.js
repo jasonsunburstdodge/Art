@@ -223,23 +223,20 @@
     // City-wide flash: `flash`/`climbT` are the same for every building this
     // frame, so every line brightens and fades in lockstep.
     if (flash > 0.02) {
-      ctx.strokeStyle = rgba(CYAN, 0.95 * flash * a);
-      ctx.lineWidth = 1.6;
-      ctx.shadowColor = rgba(CYAN, 0.8 * flash * a);
-      ctx.shadowBlur = 6;
+      ctx.strokeStyle = rgba(CYAN, 0.5 * flash * a);
+      ctx.lineWidth = 1.4;
       ctx.beginPath();
       ctx.moveTo(top.x, height);
       ctx.lineTo(top.x, 0);
       ctx.stroke();
-      ctx.shadowBlur = 0;
 
       const p = project(wallX, climbT * b.height, refZ);
       if (p && p.alpha > 0.02) {
-        ctx.fillStyle = rgba(WHITE, flash * p.alpha);
-        ctx.shadowColor = rgba(CYAN, 0.95 * flash * p.alpha);
-        ctx.shadowBlur = 14;
+        ctx.fillStyle = rgba(WHITE, 0.7 * flash * p.alpha);
+        ctx.shadowColor = rgba(CYAN, 0.6 * flash * p.alpha);
+        ctx.shadowBlur = 8;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, Math.max(1.6, 3 * p.scale), 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, Math.max(1.4, 2.4 * p.scale), 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
       }
