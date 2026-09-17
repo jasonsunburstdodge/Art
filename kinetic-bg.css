@@ -86,6 +86,67 @@
   to { stroke-dashoffset: -140; }
 }
 
+/* Core rings: decorative circular/elliptical lines rotating around the
+   logo, each carrying its own glowing "electron" dot for free via the
+   ring's own rotation — sits behind the logo, in front of the aurora. */
+.kb-core-rings {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  z-index: 40;
+}
+.kb-core-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border: 1px solid rgba(95, 205, 251, 0.22);
+  border-radius: 50%;
+}
+.kb-core-ring::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  border-radius: 50%;
+  background: var(--ink-1);
+  box-shadow: 0 0 8px 2px rgba(95, 205, 251, 0.9), 0 0 16px 4px rgba(95, 205, 251, 0.4);
+}
+.kb-core-ring.r1 {
+  width: min(230px, 46vw);
+  height: min(230px, 46vw);
+  transform: translate(-50%, -50%) rotate(0deg);
+  animation: kb-spin 14s linear infinite;
+}
+.kb-core-ring.r2 {
+  width: min(300px, 60vw);
+  height: min(140px, 28vw);
+  transform: translate(-50%, -50%) rotate(24deg);
+  animation: kb-spin-tilt 18s linear infinite;
+}
+.kb-core-ring.r3 {
+  width: min(150px, 30vw);
+  height: min(340px, 68vw);
+  transform: translate(-50%, -50%) rotate(-32deg);
+  animation: kb-spin-tall 22s linear infinite;
+}
+@keyframes kb-spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+@keyframes kb-spin-tilt {
+  from { transform: translate(-50%, -50%) rotate(24deg); }
+  to { transform: translate(-50%, -50%) rotate(-336deg); }
+}
+@keyframes kb-spin-tall {
+  from { transform: translate(-50%, -50%) rotate(-32deg); }
+  to { transform: translate(-50%, -50%) rotate(328deg); }
+}
+
 /* Electrons: small glowing points tracing the orbit track */
 .kb-electron {
   position: absolute;
@@ -188,14 +249,19 @@
   color: var(--ink-2);
 }
 
-/* Bottom scrolling ticker rail — always full brightness */
+/* Bottom scrolling ticker rails — always full brightness. Two rows,
+   scrolling in opposite directions at different speeds. */
 .kb-rail {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 40px;
+  height: 64px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.35rem;
   background: linear-gradient(to top, rgba(2, 4, 10, 0.55), rgba(2, 4, 10, 0));
   border-top: 1px solid rgba(95, 205, 251, 0.16);
 }
@@ -203,7 +269,6 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  height: 100%;
   white-space: nowrap;
   font-family: var(--font-mono);
   font-size: 0.68rem;
@@ -215,9 +280,19 @@
 }
 .kb-rail-track strong { color: var(--accent-cyan); font-weight: 600; }
 .kb-rail-track i { width: 3px; height: 3px; border-radius: 50%; background: var(--accent-line); flex: none; }
+.kb-rail-track-secondary {
+  font-size: 0.6rem;
+  color: rgba(200, 208, 220, 0.5);
+  animation: kb-rail-scroll-reverse 55s linear infinite;
+}
+.kb-rail-track-secondary strong { color: rgba(95, 205, 251, 0.65); }
 @keyframes kb-rail-scroll {
   from { transform: translateX(0); }
   to { transform: translateX(-100%); }
+}
+@keyframes kb-rail-scroll-reverse {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -227,4 +302,5 @@
   .kb-aurora.a, .kb-aurora.b { animation: none; }
   .kb-electron { display: none; }
   .kb-spoke { animation: none; }
+  .kb-core-ring.r1, .kb-core-ring.r2, .kb-core-ring.r3 { animation: none; }
 }

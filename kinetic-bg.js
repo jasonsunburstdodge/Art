@@ -98,6 +98,18 @@
   const orbitEl = document.createElement("div");
   orbitEl.className = "kb-orbit";
 
+  // Core rings: three purely-CSS-animated circular/elliptical lines around
+  // the logo, each carrying a glowing dot that travels the ring for free
+  // as it spins — no per-frame JS needed for these.
+  const coreRingsEl = document.createElement("div");
+  coreRingsEl.className = "kb-core-rings";
+  ["r1", "r2", "r3"].forEach((cls) => {
+    const ring = document.createElement("div");
+    ring.className = "kb-core-ring " + cls;
+    coreRingsEl.appendChild(ring);
+  });
+  orbitEl.appendChild(coreRingsEl);
+
   const logoWrap = document.createElement("div");
   logoWrap.className = "kb-logo-wrap";
   const logoImg = document.createElement("img");
@@ -152,27 +164,33 @@
   railEl.className = "kb-rail";
   const trackEl = document.createElement("div");
   trackEl.className = "kb-rail-track";
-  function fillTrack() {
-    trackEl.innerHTML = "";
+  const trackEl2 = document.createElement("div");
+  trackEl2.className = "kb-rail-track kb-rail-track-secondary";
+  function fillTrack(el, reverseGroups) {
+    el.innerHTML = "";
+    const groups = reverseGroups ? TICKER_ITEMS.slice().reverse() : TICKER_ITEMS;
     for (let rep = 0; rep < 2; rep++) {
-      TICKER_ITEMS.forEach(([label, items]) => {
+      groups.forEach(([label, items]) => {
         const strong = document.createElement("strong");
         strong.textContent = label;
-        trackEl.appendChild(strong);
-        items.forEach((item) => {
+        el.appendChild(strong);
+        const list = reverseGroups ? items.slice().reverse() : items;
+        list.forEach((item) => {
           const i = document.createElement("i");
           const span = document.createElement("span");
           span.textContent = item;
-          trackEl.appendChild(i);
-          trackEl.appendChild(span);
+          el.appendChild(i);
+          el.appendChild(span);
         });
         const em = document.createElement("em");
-        trackEl.appendChild(em);
+        el.appendChild(em);
       });
     }
   }
-  fillTrack();
+  fillTrack(trackEl, false);
+  fillTrack(trackEl2, true);
   railEl.appendChild(trackEl);
+  railEl.appendChild(trackEl2);
 
   root.appendChild(auraEl);
   root.appendChild(svgEl);
