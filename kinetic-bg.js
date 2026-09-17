@@ -83,6 +83,18 @@
     return span;
   });
 
+  const auraEl = document.createElement("div");
+  auraEl.className = "kb-aurora-field";
+  auraEl.innerHTML = '<div class="kb-aurora a"></div><div class="kb-aurora b"></div>';
+
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const svgEl = document.createElementNS(SVG_NS, "svg");
+  svgEl.setAttribute("class", "kb-svg");
+  const trackEllipse = document.createElementNS(SVG_NS, "ellipse");
+  trackEllipse.setAttribute("class", "kb-track");
+  svgEl.appendChild(trackEllipse);
+  const spokes = [];
+
   const orbitEl = document.createElement("div");
   orbitEl.className = "kb-orbit";
 
@@ -117,6 +129,23 @@
       contentIndex: i % CONTENT.length,
       wrapped: false
     });
+
+    const spoke = document.createElementNS(SVG_NS, "line");
+    spoke.setAttribute("class", "kb-spoke");
+    svgEl.appendChild(spoke);
+    spokes.push(spoke);
+  }
+
+  // "Electrons": small glowing points that trace the same orbit track at
+  // their own faster, independent speed — pure atmosphere, not tied to
+  // card content or the interaction brightness toggle.
+  const ELECTRON_COUNT = 4;
+  const electrons = [];
+  for (let i = 0; i < ELECTRON_COUNT; i++) {
+    const el = document.createElement("div");
+    el.className = "kb-electron";
+    orbitEl.appendChild(el);
+    electrons.push({ el, angle: (Math.PI * 2 * i) / ELECTRON_COUNT });
   }
 
   const railEl = document.createElement("div");
@@ -145,6 +174,8 @@
   fillTrack();
   railEl.appendChild(trackEl);
 
+  root.appendChild(auraEl);
+  root.appendChild(svgEl);
   root.appendChild(wordsEl);
   root.appendChild(orbitEl);
   root.appendChild(railEl);
@@ -171,6 +202,13 @@
     centerY = H / 2;
     radiusX = W * 0.46;
     radiusY = H * 0.25;
+    svgEl.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    svgEl.setAttribute("width", W);
+    svgEl.setAttribute("height", H);
+    trackEllipse.setAttribute("cx", centerX);
+    trackEllipse.setAttribute("cy", centerY);
+    trackEllipse.setAttribute("rx", radiusX);
+    trackEllipse.setAttribute("ry", radiusY);
   }
   window.addEventListener("resize", measure, { passive: true });
   measure();
@@ -241,7 +279,7 @@
       root.style.setProperty("--kb-fade", fade.toFixed(3));
     }
 
-    cards.forEach((card) => {
+    cards.forEach((card, i) => {
       if (!reduceMotion) card.angle += ANGULAR_SPEED * dt;
       const theta = card.angle % (Math.PI * 2);
       const normalized = theta < 0 ? theta + Math.PI * 2 : theta;
@@ -262,6 +300,23 @@
       const y = centerY - Math.cos(normalized) * radiusY;
       card.el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) scale(${s.toFixed(3)})`;
       card.el.style.zIndex = String(Math.round(s * 100));
+
+      const spoke = spokes[i];
+      spoke.setAttribute("x1", centerX);
+      spoke.setAttribute("y1", centerY);
+      spoke.setAttribute("x2", x);
+      spoke.setAttribute("y2", y);
+      spoke.setAttribute("stroke-opacity", (0.12 + 0.4 * fade).toFixed(3));
+    });
+
+    electrons.forEach((e) => {
+      if (!reduceMotion) e.angle += ANGULAR_SPEED * 5.2 * dt;
+      const theta = e.angle % (Math.PI * 2);
+      const normalized = theta < 0 ? theta + Math.PI * 2 : theta;
+      const s = 0.55 + 0.45 * scaleAt(normalized);
+      const x = centerX + Math.sin(normalized) * radiusX;
+      const y = centerY - Math.cos(normalized) * radiusY;
+      e.el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) scale(${s.toFixed(3)})`;
     });
 
     requestAnimationFrame(frame);
@@ -269,24 +324,31 @@
 
   if (reduceMotion) {
     // Static ring at fixed evenly-spaced positions, one render, no loop.
-    cards.forEach((card) => {
-      const theta = card.angle;
-      const s = scaleAt(theta);
-      const x = centerX + Math.sin(theta) * radiusX;
-      const y = centerY - Math.cos(theta) * radiusY;
-      card.el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) scale(${s.toFixed(3)})`;
-      card.el.style.zIndex = String(Math.round(s * 100));
-    });
-    root.style.setProperty("--kb-fade", "0.4");
-    window.addEventListener("resize", () => {
-      measure();
-      cards.forEach((card) => {
+    // Electrons are pure ambient motion with no static meaning, so they're
+    // hidden entirely under reduced motion (see the CSS); spokes stay,
+    // since they show real structure (logo-to-card links) at rest.
+    function layoutStatic() {
+      cards.forEach((card, i) => {
         const theta = card.angle;
         const s = scaleAt(theta);
         const x = centerX + Math.sin(theta) * radiusX;
         const y = centerY - Math.cos(theta) * radiusY;
         card.el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) scale(${s.toFixed(3)})`;
+        card.el.style.zIndex = String(Math.round(s * 100));
+
+        const spoke = spokes[i];
+        spoke.setAttribute("x1", centerX);
+        spoke.setAttribute("y1", centerY);
+        spoke.setAttribute("x2", x);
+        spoke.setAttribute("y2", y);
+        spoke.setAttribute("stroke-opacity", "0.16");
       });
+    }
+    layoutStatic();
+    root.style.setProperty("--kb-fade", "0.4");
+    window.addEventListener("resize", () => {
+      measure();
+      layoutStatic();
     });
   } else {
     requestAnimationFrame(frame);
