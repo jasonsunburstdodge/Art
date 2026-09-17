@@ -206,12 +206,14 @@
   }
 
   // ---------------------------------------------------------------------
-  // Interaction brightness: a scroll or click snaps to full brightness;
-  // it then decays back to the translucent resting level just as
-  // quickly. --kb-fade drives card-inner/logo/card-outline opacity
-  // together, so they all fade in and out in lockstep.
+  // Interaction brightness: a click snaps to full brightness; a scroll
+  // only nudges it slightly brighter. Both decay back to the translucent
+  // resting level just as quickly. --kb-fade drives card-inner/logo/
+  // card-outline opacity together, so they all fade in and out in
+  // lockstep.
   // ---------------------------------------------------------------------
   const FADE_REST = 0.12;
+  const FADE_SCROLL = 0.32;
   const FADE_IN_MS = 320;
   const FADE_OUT_MS = 320;
   let fade = FADE_REST;
@@ -219,8 +221,8 @@
   let fadeRateMs = FADE_OUT_MS;
   let lastFrameTime = null;
 
-  function triggerBright() {
-    fadeTarget = 1;
+  function triggerBright(target) {
+    fadeTarget = target;
     fadeRateMs = FADE_IN_MS;
   }
   let restTimer = null;
@@ -231,13 +233,13 @@
       fadeRateMs = FADE_OUT_MS;
     }, 90);
   }
-  function onActivity() {
-    triggerBright();
+  function onActivity(target) {
+    triggerBright(target);
     scheduleRest();
   }
   if (!reduceMotion) {
-    window.addEventListener("scroll", onActivity, { passive: true });
-    window.addEventListener("click", onActivity, { passive: true });
+    window.addEventListener("scroll", () => onActivity(FADE_SCROLL), { passive: true });
+    window.addEventListener("click", () => onActivity(1), { passive: true });
   }
 
   // ---------------------------------------------------------------------
