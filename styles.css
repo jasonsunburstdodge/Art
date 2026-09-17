@@ -421,6 +421,10 @@ button.pillar-more {
   font-weight: 700;
 }
 .connect-line { display: block; }
+.hero-bullet {
+  font-weight: 700;
+  color: var(--accent-cyan);
+}
 .closing-tagline {
   margin-top: 1.8rem;
   font-family: var(--font-display);
