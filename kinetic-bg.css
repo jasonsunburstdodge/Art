@@ -126,7 +126,7 @@
   width: min(300px, 60vw);
   height: min(140px, 28vw);
   transform: translate(-50%, -50%) rotate(24deg);
-  animation: kb-spin-tilt 104s linear infinite;
+  animation: kb-spin-tilt 52s linear infinite;
 }
 .kb-core-ring.r3 {
   width: min(150px, 30vw);

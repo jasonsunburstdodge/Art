@@ -18,9 +18,9 @@
   //     same angle so size and position stay perfectly in sync: smallest
   //     at the top of the orbit, half-max at the sides, full size at the
   //     bottom — giving the ring a "tilted circle" depth illusion.
-  //   - Cards/logo/card outlines sit translucent at rest; any
-  //     pointer/touch/scroll activity snaps them to full brightness, which
-  //     then decays back to translucent at half that speed.
+  //   - Cards/logo/card outlines sit translucent at rest; a scroll or
+  //     click snaps them to full brightness, which then decays back to
+  //     translucent at the same speed.
   //
   // Under prefers-reduced-motion, the ring holds still at fixed positions
   // and the word doesn't cycle — nothing here moves without the visitor's
@@ -206,8 +206,8 @@
   }
 
   // ---------------------------------------------------------------------
-  // Interaction brightness: any pointer/touch/scroll snaps to full
-  // brightness; it then decays back to the translucent resting level
+  // Interaction brightness: a scroll or click snaps to full brightness;
+  // it then decays back to the translucent resting level just as
   // quickly. --kb-fade drives card-inner/logo/card-outline opacity
   // together, so they all fade in and out in lockstep.
   // ---------------------------------------------------------------------
@@ -236,10 +236,6 @@
     scheduleRest();
   }
   if (!reduceMotion) {
-    window.addEventListener("pointermove", onActivity, { passive: true });
-    window.addEventListener("pointerdown", onActivity, { passive: true });
-    window.addEventListener("touchstart", onActivity, { passive: true });
-    window.addEventListener("touchmove", onActivity, { passive: true });
     window.addEventListener("scroll", onActivity, { passive: true });
     window.addEventListener("click", onActivity, { passive: true });
   }
@@ -247,7 +243,7 @@
   // ---------------------------------------------------------------------
   // Frame loop
   // ---------------------------------------------------------------------
-  const ANGULAR_SPEED = (Math.PI * 2) / 26000; // one full lap ~26s
+  const ANGULAR_SPEED = (Math.PI * 2) / 52000; // one full lap ~52s (half speed)
 
   function frame(now) {
     const dt = lastFrameTime != null ? now - lastFrameTime : 16;
