@@ -243,7 +243,7 @@
   // ---------------------------------------------------------------------
   // Frame loop
   // ---------------------------------------------------------------------
-  const ANGULAR_SPEED = (Math.PI * 2) / 52000; // one full lap ~52s (half speed)
+  const ANGULAR_SPEED = (Math.PI * 2) / 104000; // one full lap ~104s (quarter of original speed)
 
   function frame(now) {
     const dt = lastFrameTime != null ? now - lastFrameTime : 16;
