@@ -3,12 +3,13 @@
 
   // Homepage-only background: a circuit-city flythrough. Scrolling moves the
   // camera forward through a canyon of close, oversized skyscrapers whose
-  // facades are dark circuit-board glass with pulses of light racing along
-  // the street and up their surfaces. As you scroll, big words light up in
-  // the open sky between the buildings — near the horizon, where the canyon
-  // opens up — hold there, then fade, cycling through whichever pillar's
-  // vocabulary the camera is currently passing through. No node webs, no
-  // literal neural network — everything is street, tower, bridge and pulse.
+  // facades are dark circuit-board glass. As you scroll, a big electric-blue
+  // word flashes in the open sky between the buildings — near the horizon,
+  // where the canyon opens up — then fades away almost immediately, cycling
+  // through whichever pillar's vocabulary the camera is currently passing
+  // through. The instant a word appears, every building sends an electric-
+  // blue pulse racing up its own facade in sync. No node webs, no literal
+  // neural network — everything is street, tower, bridge and pulse.
 
   const canvas = document.getElementById("synapse-canvas");
   if (!canvas) return;
@@ -141,8 +142,7 @@
       const district = districtAt(z + segLen * 0.3);
       wall.push({
         zStart: z, zEnd: z + segLen, side, district,
-        height: district === "build" ? 480 + Math.random() * 480 : 380 + Math.random() * 520,
-        climbSpan: district === "scale" ? 16 : district === "find" ? 34 : district === "connect" ? 46 : 55
+        height: district === "build" ? 480 + Math.random() * 480 : 380 + Math.random() * 520
       });
       z += segLen + 30 + Math.random() * 70;
     }
@@ -241,11 +241,13 @@
   }
 
   // ---------------------------------------------------------------------
-  // Buildings: mullion lines, story ticks, and the pulse that races up the
-  // facade once the street energy reaches it. Words no longer live here —
-  // see drawSkyWord below.
+  // Buildings: mullion lines and story ticks, dark until a word appears.
+  // Each time one does, `flashRel` (shared by every building, driven by
+  // that same word's slot progress) sends an electric-blue pulse racing
+  // up every facade at once, then the glow drops out fast, matching the
+  // word's own quick fade. Words no longer live here — see drawSkyWord.
   // ---------------------------------------------------------------------
-  function drawBuilding(b) {
+  function drawBuilding(b, flashRel) {
     if (b.zEnd < camZ - 40 || b.zStart > camZ + FAR) return;
     const wallXAt = (z) => pathX(z) + b.side * halfWidthAt(z);
     const refZ = Math.max(b.zStart, camZ + NEAR + 1);
@@ -256,8 +258,7 @@
     const a = base.alpha;
     if (a <= 0.02) return;
 
-    const climb = clamp01((camZ - b.zStart) / b.climbSpan);
-    if (climb > 0.06 && climb < 0.94) lookUpBoost = Math.max(lookUpBoost, climb * (1 - climb) * 4);
+    const flash = flashRel === null ? 0 : wordEnvelope(flashRel);
 
     ctx.strokeStyle = rgba(DIM, 0.35 * a);
     ctx.lineWidth = 1;
@@ -291,28 +292,22 @@
       ctx.stroke();
     }
 
-    if (climb > 0.01 && climb < 1) {
-      const py = climb * b.height;
-      const p = project(wallX, py, refZ);
+    if (flash > 0.02) {
+      ctx.strokeStyle = rgba(CYAN, 0.7 * flash * a);
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(base.x, base.y);
+      ctx.lineTo(top.x, top.y);
+      ctx.stroke();
+
+      const climbT = clamp01(flashRel / 0.1);
+      const p = project(wallX, climbT * b.height, refZ);
       if (p && p.alpha > 0.02) {
-        ctx.fillStyle = rgba(WHITE, p.alpha);
-        ctx.shadowColor = rgba(CYAN, 0.95 * p.alpha);
+        ctx.fillStyle = rgba(CYAN, flash * p.alpha);
+        ctx.shadowColor = rgba(CYAN, 0.95 * flash * p.alpha);
         ctx.shadowBlur = 12;
         ctx.beginPath();
         ctx.arc(p.x, p.y, Math.max(1.4, 2.6 * p.scale), 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      }
-    } else if (climb <= 0.01 && camZ > b.zStart - 130 && camZ < b.zStart) {
-      const t = clamp01((camZ - (b.zStart - 130)) / 130);
-      const sx = lerp(pathX(refZ), wallX, t);
-      const p = project(sx, 0, refZ);
-      if (p && p.alpha > 0.02) {
-        ctx.fillStyle = rgba(WHITE, 0.95 * p.alpha);
-        ctx.shadowColor = rgba(CYAN, 0.9 * p.alpha);
-        ctx.shadowBlur = 10;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, Math.max(1.2, 2.4 * p.scale), 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
       }
@@ -388,14 +383,23 @@
   }
 
   // ---------------------------------------------------------------------
-  // Sky words: big text that lights up in the open gap between the two
-  // walls of buildings, near the horizon, holds, then fades — one word per
-  // fixed stretch of world distance, so a new one only appears by scrolling
-  // further into it. Which list plays is just whichever district camZ is
-  // in; the FIND finale gets its own slower, dedicated slots.
+  // Sky words: big electric-blue text that lights up in the open gap
+  // between the two walls of buildings, near the horizon, then fades away
+  // immediately — one word per fixed stretch of world distance, so a new
+  // one only appears by scrolling further into it. Which list plays is
+  // just whichever district camZ is in; the FIND finale gets its own
+  // slower, dedicated slots. The same rise-and-drop envelope also drives
+  // the electric-blue pulse every building sends up its facade the moment
+  // a word appears — see drawBuilding.
   // ---------------------------------------------------------------------
   const WORD_SPACING = 320;
   const CLIMAX_SPACING = 260;
+
+  function wordEnvelope(rel) {
+    const fadeIn = smoothstep(0, 0.06, rel);
+    const fadeOut = 1 - smoothstep(0.1, 0.45, rel);
+    return fadeIn * fadeOut;
+  }
 
   function skyWordAt(z) {
     const climaxStart = bounds.find[1] - CLIMAX_WORDS.length * CLIMAX_SPACING;
@@ -412,23 +416,17 @@
     return { word, slotStart: districtStart + idx * WORD_SPACING, slotSpan: WORD_SPACING };
   }
 
-  function drawSkyWord(sw) {
-    if (!sw) return;
-    const rel = clamp01((camZ - sw.slotStart) / sw.slotSpan);
-    const fadeIn = smoothstep(0, 0.12, rel);
-    const fadeOut = 1 - smoothstep(0.68, 1, rel);
-    const a = fadeIn * fadeOut;
-    if (a <= 0.01) return;
-
+  function drawSkyWord(sw, a) {
+    if (!sw || a <= 0.01) return;
     const fontPx = Math.min(width, height) * 0.1;
     ctx.save();
     ctx.globalAlpha = a;
     ctx.font = `800 ${fontPx}px 'IBM Plex Mono', ui-monospace, monospace`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.shadowColor = rgba(CYAN, 0.85);
-    ctx.shadowBlur = 18;
-    ctx.fillStyle = rgba(WHITE, 1);
+    ctx.shadowColor = rgba(CYAN, 0.9);
+    ctx.shadowBlur = 20;
+    ctx.fillStyle = rgba(CYAN, 1);
     ctx.fillText(sw.word, cx, cy - height * 0.22);
     ctx.shadowBlur = 0;
     ctx.restore();
@@ -518,7 +516,12 @@
     const y = window.scrollY + height * 0.5;
     camZ = y * Z_PER_PIXEL;
     camX = pathX(camZ);
-    lookUpBoost *= 0.9;
+
+    const sw = skyWordAt(camZ);
+    const flashRel = sw ? clamp01((camZ - sw.slotStart) / sw.slotSpan) : null;
+    const flashA = flashRel === null ? 0 : wordEnvelope(flashRel);
+
+    lookUpBoost = Math.max(lookUpBoost * 0.9, flashA);
     camY = eyeY(camZ) + lookUpBoost * 22;
 
     const boost = animNow < burstUntil ? 1.35 : 1;
@@ -541,10 +544,10 @@
       ctx.restore();
     }
 
-    for (const b of leftBuildings) drawBuilding(b);
-    for (const b of rightBuildings) drawBuilding(b);
+    for (const b of leftBuildings) drawBuilding(b, flashRel);
+    for (const b of rightBuildings) drawBuilding(b, flashRel);
     for (const j of junctions) drawJunction(j);
-    drawSkyWord(skyWordAt(camZ));
+    drawSkyWord(sw, flashA);
 
     ctx.restore();
     drawVignette();
