@@ -221,7 +221,13 @@
     ctx.stroke();
 
     // City-wide flash: `flash`/`climbT` are the same for every building this
-    // frame, so every line brightens and fades in lockstep.
+    // frame, so every line brightens and fades in lockstep. `mullionLines`
+    // collects this building's own two mullion lines (never a neighboring
+    // building's, and never the open street between the two canyon walls)
+    // so the narrow opening between them can glow at half the line's
+    // brightness, in the same beat.
+    const mullionLines = [];
+
     if (flash > 0.02) {
       ctx.strokeStyle = rgba(CYAN, 0.5 * flash * a);
       ctx.lineWidth = 1.4;
@@ -252,6 +258,26 @@
         ctx.moveTo(t2.x, height);
         ctx.lineTo(t2.x, 0);
         ctx.stroke();
+
+        if (flash > 0.02) {
+          ctx.strokeStyle = rgba(CYAN, 0.5 * flash * t2.alpha);
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(t2.x, height);
+          ctx.lineTo(t2.x, 0);
+          ctx.stroke();
+        }
+        mullionLines.push({ x: t2.x, a: t2.alpha });
+      }
+    }
+
+    if (flash > 0.02 && mullionLines.length === 2) {
+      const [l, r] = mullionLines[0].x <= mullionLines[1].x ? mullionLines : [mullionLines[1], mullionLines[0]];
+      const gap = r.x - l.x;
+      if (gap > 0 && gap < 140) {
+        const avgA = (l.a + r.a) / 2;
+        ctx.fillStyle = rgba(CYAN, 0.25 * flash * avgA);
+        ctx.fillRect(l.x, 0, gap, height);
       }
     }
 
