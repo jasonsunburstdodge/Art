@@ -3,24 +3,17 @@
 
   // Homepage-only background: a circuit-city flythrough. Scrolling moves the
   // camera forward through a canyon of close, oversized skyscrapers whose
-  // facades are dark circuit-board glass — no text on the buildings
-  // themselves. Crossing into a new stretch of a pillar's vocabulary spawns
-  // a small electric-blue word scattered at a random spot across the
-  // screen; several can be in flight at once if you scroll briskly. Once
-  // spawned, a word's fade-in/hold/fade-out runs on its own clock — it
-  // keeps playing out, and every building keeps sending its synced
-  // electric-blue pulse up its own facade, even if the page stops
-  // scrolling mid-flash. Reduced-motion visitors get the same beats without
-  // the free-running clock: one word, tied strictly to scroll position, so
-  // nothing moves without their input. No node webs, no literal neural
-  // network — everything is street, tower, bridge and pulse.
+  // facades are dark circuit-board glass — no text anywhere in the scene.
+  // The canyon lines run uninterrupted from the top of each building down to
+  // the bottom of the screen, with overhead bridges lighting up as the
+  // camera passes beneath them. No node webs, no literal neural network, no
+  // ground-level road — everything is tower, bridge and pulse.
 
   const canvas = document.getElementById("synapse-canvas");
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
 
   const CYAN = [95, 205, 251];
-  const BLUE = [47, 134, 245];
   const WHITE = [242, 246, 255];
   const DIM = [58, 78, 108];
 
@@ -109,14 +102,6 @@
     return "scale";
   }
 
-  const WORDS = {
-    build: ["BUILD", "CREATE", "INNOVATE", "DEVELOP", "AUTOMATE", "INTEGRATE", "MODERNIZE", "TRANSFORM", "SOLVE", "SCALE"],
-    connect: ["CONNECT", "TALENT", "TEAMS", "EXPERTISE", "CAPABILITY", "SUPPORT", "AUGMENT", "COLLABORATE", "EMPOWER", "DELIVER"],
-    find: ["FIND", "DISCOVER", "VISIBLE", "ATTRACT", "ENGAGE", "REACH", "INFLUENCE", "CONVERT", "DEMAND", "OPPORTUNITY"],
-    scale: ["SCALE", "GROWTH", "TOGETHER", "MOMENTUM", "PARTNERSHIP"]
-  };
-  const CLIMAX_WORDS = ["VISIBLE", "ENGAGE", "CONVERT", "GROW"];
-
   // ---------------------------------------------------------------------
   // Procedural city: two walls of building segments plus overhead bridges.
   // ---------------------------------------------------------------------
@@ -156,7 +141,7 @@
   // ---------------------------------------------------------------------
   // Camera / projection
   // ---------------------------------------------------------------------
-  let camZ = 0, camX = 0, camY = EYE_BASE, lookUpBoost = 0;
+  let camZ = 0, camX = 0, camY = EYE_BASE;
 
   function project(wx, wy, wz) {
     const depth = wz - camZ;
@@ -167,50 +152,6 @@
     const fadeNear = Math.min(1, (depth - NEAR) / 60);
     const fadeFar = Math.min(1, (FAR - depth) / (FAR * 0.4));
     return { x: sx, y: sy, scale, depth, alpha: Math.max(0, Math.min(fadeNear, fadeFar)) };
-  }
-
-  // ---------------------------------------------------------------------
-  // Street: curving lane lines + a bright pulse train that only advances
-  // with camZ (i.e. only while the page is actually being scrolled).
-  // ---------------------------------------------------------------------
-  function drawStreet() {
-    const offsets = [0, 0.55, 1];
-    for (const f of offsets) {
-      for (const side of [-1, 1]) {
-        if (f === 0 && side === 1) continue;
-        ctx.beginPath();
-        let started = false;
-        for (let i = 0; i <= 26; i++) {
-          const z = camZ + NEAR + (FAR - NEAR) * (i / 26);
-          const hw = halfWidthAt(z);
-          const wx = pathX(z) + side * hw * f;
-          const p = project(wx, 0, z);
-          if (!p) continue;
-          if (!started) { ctx.moveTo(p.x, p.y); started = true; }
-          else ctx.lineTo(p.x, p.y);
-        }
-        const a = f === 0 ? 0.16 : 0.22;
-        ctx.strokeStyle = rgba(f === 0 ? WHITE : CYAN, a);
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      }
-    }
-
-    // Pulses of light sit at fixed world-distance intervals, so their
-    // screen position only changes when camZ itself changes (i.e. scrolling).
-    const spacing = 130;
-    const firstZ = Math.ceil((camZ + 20) / spacing) * spacing;
-    for (let i = 0; i < 10; i++) {
-      const z = firstZ + i * spacing;
-      const p = project(pathX(z), 0, z);
-      if (!p || p.alpha <= 0.02) continue;
-      const s = Math.max(0.9, 8 * p.scale);
-      ctx.fillStyle = rgba(WHITE, 0.95 * p.alpha);
-      ctx.shadowColor = rgba(CYAN, 0.9 * p.alpha);
-      ctx.shadowBlur = 8;
-      ctx.fillRect(p.x - s / 2, p.y - 1, s, 2);
-      ctx.shadowBlur = 0;
-    }
   }
 
   function drawBridge(b) {
@@ -245,39 +186,37 @@
   }
 
   // ---------------------------------------------------------------------
-  // Buildings: mullion lines and story ticks, dark until a word appears.
-  // Each time one does, `flash`/`climbT` (shared by every building, driven
-  // by that same word's own clock) send an electric-blue pulse racing up
-  // every facade at once; the pulse keeps climbing and the glow keeps
-  // fading on that clock even if scrolling has already stopped. Words no
-  // longer live here — see drawSkyWord.
+  // Buildings: mullion lines and story ticks running the full height of the
+  // canyon. Screen-x from project() depends only on depth (wz), not on
+  // world-height (wy), so the same x used for a line's top point is reused
+  // at the screen's bottom edge to carry every line all the way down —
+  // there's no separate "ground" point to project for that.
   // ---------------------------------------------------------------------
-  function drawBuilding(b, flash, climbT) {
+  function drawBuilding(b) {
     if (b.zEnd < camZ - 40 || b.zStart > camZ + FAR) return;
     const wallXAt = (z) => pathX(z) + b.side * halfWidthAt(z);
     const refZ = Math.max(b.zStart, camZ + NEAR + 1);
     const wallX = wallXAt(refZ);
-    const base = project(wallX, 0, refZ);
     const top = project(wallX, b.height, refZ);
-    if (!base || !top) return;
-    const a = base.alpha;
+    if (!top) return;
+    const a = top.alpha;
     if (a <= 0.02) return;
 
     ctx.strokeStyle = rgba(DIM, 0.35 * a);
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(base.x, base.y);
+    ctx.moveTo(top.x, height);
     ctx.lineTo(top.x, top.y);
     ctx.stroke();
 
     for (const f of [0.35, 0.7]) {
       const z2 = b.zStart + (b.zEnd - b.zStart) * f;
       const wx2 = wallXAt(z2);
-      const b2 = project(wx2, 0, z2), t2 = project(wx2, b.height * (0.6 + f * 0.3), z2);
-      if (b2 && t2 && b2.alpha > 0.02) {
-        ctx.strokeStyle = rgba(DIM, 0.22 * b2.alpha);
+      const t2 = project(wx2, b.height * (0.6 + f * 0.3), z2);
+      if (t2 && t2.alpha > 0.02) {
+        ctx.strokeStyle = rgba(DIM, 0.22 * t2.alpha);
         ctx.beginPath();
-        ctx.moveTo(b2.x, b2.y);
+        ctx.moveTo(t2.x, height);
         ctx.lineTo(t2.x, t2.y);
         ctx.stroke();
       }
@@ -293,144 +232,6 @@
       ctx.moveTo(p.x - tickW, p.y);
       ctx.lineTo(p.x + tickW, p.y);
       ctx.stroke();
-    }
-
-    if (flash > 0.02) {
-      ctx.strokeStyle = rgba(CYAN, 0.7 * flash * a);
-      ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      ctx.moveTo(base.x, base.y);
-      ctx.lineTo(top.x, top.y);
-      ctx.stroke();
-
-      const p = project(wallX, climbT * b.height, refZ);
-      if (p && p.alpha > 0.02) {
-        ctx.fillStyle = rgba(CYAN, flash * p.alpha);
-        ctx.shadowColor = rgba(CYAN, 0.95 * flash * p.alpha);
-        ctx.shadowBlur = 12;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, Math.max(1.4, 2.6 * p.scale), 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      }
-    }
-  }
-
-  // ---------------------------------------------------------------------
-  // Sky words: small electric-blue text that lights up at a random spot
-  // scattered anywhere on screen, then fades away — one word slot per
-  // fixed stretch of world distance, so a new one only triggers by
-  // scrolling further into it. Which list plays is just
-  // whichever district camZ is in; the FIND finale gets its own slower,
-  // dedicated slots. Crossing into a slot only *spawns* the word; once
-  // spawned (see wordEvents below) its own fade-in/hold/fade-out clock —
-  // and the matching electric-blue pulse every building sends up its
-  // facade — keeps running in real time even after scrolling stops, and
-  // more than one can be in flight if slots are crossed quickly.
-  // ---------------------------------------------------------------------
-  const WORD_SPACING = 320;
-  const CLIMAX_SPACING = 260;
-  const WORD_FADE_IN_MS = 120;
-  const WORD_HOLD_MS = 60;
-  const WORD_FADE_OUT_MS = 650;
-  const WORD_LIFESPAN_MS = WORD_FADE_IN_MS + WORD_HOLD_MS + WORD_FADE_OUT_MS;
-  const PULSE_CLIMB_MS = 260;
-
-  // Scroll-position envelope, used only for the reduced-motion fallback
-  // (kept strictly tied to camZ so nothing animates without user input).
-  function wordEnvelope(rel) {
-    const fadeIn = smoothstep(0, 0.06, rel);
-    const fadeOut = 1 - smoothstep(0.1, 0.45, rel);
-    return fadeIn * fadeOut;
-  }
-
-  // Real-time envelope for a spawned word/pulse event.
-  function timeEnvelope(ageMs) {
-    if (ageMs < 0 || ageMs > WORD_LIFESPAN_MS) return 0;
-    if (ageMs < WORD_FADE_IN_MS) return smoothstep(0, WORD_FADE_IN_MS, ageMs);
-    if (ageMs < WORD_FADE_IN_MS + WORD_HOLD_MS) return 1;
-    return 1 - smoothstep(WORD_FADE_IN_MS + WORD_HOLD_MS, WORD_LIFESPAN_MS, ageMs);
-  }
-
-  function skyWordAt(z) {
-    const climaxStart = bounds.find[1] - CLIMAX_WORDS.length * CLIMAX_SPACING;
-    if (z >= climaxStart && z < bounds.find[1]) {
-      const idx = Math.min(CLIMAX_WORDS.length - 1, Math.floor((z - climaxStart) / CLIMAX_SPACING));
-      return { word: CLIMAX_WORDS[idx], slotStart: climaxStart + idx * CLIMAX_SPACING, slotSpan: CLIMAX_SPACING };
-    }
-    const district = districtAt(z);
-    const list = WORDS[district];
-    if (!list || !list.length) return null;
-    const districtStart = district === "hero" ? 0 : district === "scale" ? bounds.scaleStart : bounds[district][0];
-    const idx = Math.floor((z - districtStart) / WORD_SPACING);
-    const word = list[((idx % list.length) + list.length) % list.length];
-    return { word, slotStart: districtStart + idx * WORD_SPACING, slotSpan: WORD_SPACING };
-  }
-
-  let wordEvents = [];
-  let lastSlotKey = null;
-
-  function spawnWordEvent(word, spawnMs) {
-    const marginX = width * 0.06;
-    const x = marginX + Math.random() * Math.max(10, width - marginX * 2);
-    const yTop = Math.max(70, height * 0.08);
-    const yBottom = Math.max(yTop + 10, height * 0.9);
-    const y = yTop + Math.random() * (yBottom - yTop);
-    wordEvents.push({ word, x, y, spawnMs });
-    if (wordEvents.length > 5) wordEvents.shift();
-  }
-
-  function drawSkyWord(word, x, y, a) {
-    if (a <= 0.01) return;
-    const fontPx = Math.min(width, height) * 0.036;
-    ctx.save();
-    ctx.globalAlpha = a;
-    ctx.font = `800 ${fontPx}px 'IBM Plex Mono', ui-monospace, monospace`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.shadowColor = rgba(CYAN, 0.9);
-    ctx.shadowBlur = 20;
-    ctx.fillStyle = rgba(CYAN, 1);
-    ctx.fillText(word, x, y);
-    ctx.shadowBlur = 0;
-    ctx.restore();
-  }
-
-  // ---------------------------------------------------------------------
-  // FIND: street-level runners — many paths, most fizzle, a few converge.
-  // ---------------------------------------------------------------------
-  let runners = [];
-  function buildRunners() {
-    runners = [];
-    const span = bounds.find[1] - bounds.find[0];
-    for (let i = 0; i < 30; i++) {
-      const success = i < 6;
-      runners.push({
-        startZ: bounds.find[0] + Math.random() * span * 0.7,
-        lane: (Math.random() * 2 - 1),
-        success,
-        travel: 260 + Math.random() * 220,
-        seed: Math.random()
-      });
-    }
-  }
-  function drawRunners() {
-    for (const r of runners) {
-      const t = clamp01((camZ - r.startZ) / r.travel);
-      if (t <= 0 || t >= 1) continue;
-      const z = r.startZ + t * r.travel;
-      const hw = halfWidthAt(z);
-      const targetLane = r.success ? 0 : r.lane * 1.4;
-      const laneNow = lerp(r.lane, targetLane, Math.pow(t, 1.3));
-      const wx = pathX(z) + laneNow * hw * 0.8;
-      const p = project(wx, 0, z);
-      if (!p || p.alpha <= 0.02) continue;
-      const fade = r.success ? 1 : 1 - smoothstep(0.55, 0.95, t);
-      if (fade <= 0.02) continue;
-      ctx.fillStyle = rgba(r.success ? WHITE : CYAN, 0.6 * fade * p.alpha);
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, Math.max(0.8, 2 * p.scale), 0, Math.PI * 2);
-      ctx.fill();
     }
   }
 
@@ -449,9 +250,6 @@
   function measureAndRebuild() {
     measure();
     buildCity();
-    buildRunners();
-    wordEvents = [];
-    lastSlotKey = null;
   }
 
   function resize() {
@@ -481,34 +279,7 @@
     const y = window.scrollY + height * 0.5;
     camZ = y * Z_PER_PIXEL;
     camX = pathX(camZ);
-
-    const sw = skyWordAt(camZ);
-    let flash = 0, climbT = 0;
-
-    if (reduceMotion) {
-      // Strictly scroll-driven: freezes the instant scrolling stops.
-      const rel = sw ? clamp01((camZ - sw.slotStart) / sw.slotSpan) : null;
-      flash = rel === null ? 0 : wordEnvelope(rel);
-      climbT = rel === null ? 0 : clamp01(rel / 0.1);
-    } else {
-      // Crossing into a new word slot spawns an event; from then on its
-      // fade and the matching building pulse run on their own clock.
-      const slotKey = sw ? sw.slotStart : null;
-      if (slotKey !== null && slotKey !== lastSlotKey) {
-        lastSlotKey = slotKey;
-        spawnWordEvent(sw.word, animNow);
-      }
-      wordEvents = wordEvents.filter((e) => animNow - e.spawnMs <= WORD_LIFESPAN_MS);
-      for (const e of wordEvents) {
-        const age = animNow - e.spawnMs;
-        const a = timeEnvelope(age);
-        if (a > flash) { flash = a; climbT = clamp01(age / PULSE_CLIMB_MS); }
-      }
-    }
-
-    lookUpBoost = Math.max(lookUpBoost * 0.9, flash);
-    if (lookUpBoost < 0.002) lookUpBoost = 0;
-    camY = eyeY(camZ) + lookUpBoost * 22;
+    camY = eyeY(camZ);
 
     const boost = animNow < burstUntil ? 1.35 : 1;
 
@@ -516,11 +287,7 @@
     ctx.save();
     if (boost > 1) ctx.globalAlpha = 1;
 
-    drawStreet();
     for (const br of bridges) drawBridge(br);
-
-    const district = districtAt(camZ);
-    if (district === "find" || district === "scale") drawRunners();
 
     if (boost > 1) {
       ctx.save();
@@ -530,16 +297,8 @@
       ctx.restore();
     }
 
-    for (const b of leftBuildings) drawBuilding(b, flash, climbT);
-    for (const b of rightBuildings) drawBuilding(b, flash, climbT);
-
-    if (reduceMotion) {
-      if (sw) drawSkyWord(sw.word, cx, cy - height * 0.22, flash);
-    } else {
-      for (const e of wordEvents) {
-        drawSkyWord(e.word, e.x, e.y, timeEnvelope(animNow - e.spawnMs));
-      }
-    }
+    for (const b of leftBuildings) drawBuilding(b);
+    for (const b of rightBuildings) drawBuilding(b);
 
     ctx.restore();
     drawVignette();
