@@ -197,11 +197,11 @@
   }
 
   // ---------------------------------------------------------------------
-  // Buildings: mullion lines and story ticks running the full height of the
-  // canyon. Screen-x from project() depends only on depth (wz), not on
-  // world-height (wy), so the same x used for a line's top point is reused
-  // at the screen's bottom edge to carry every line all the way down —
-  // there's no separate "ground" point to project for that.
+  // Buildings: mullion lines and story ticks. Screen-x from project()
+  // depends only on depth (wz), not on world-height (wy), so the same x
+  // used for a line's reference point is reused at both the screen's top
+  // and bottom edges to carry every line the full height of the frame —
+  // there's no separate "ground" or "sky" point to project for that.
   // ---------------------------------------------------------------------
   function drawBuilding(b, flash, climbT) {
     if (b.zEnd < camZ - 40 || b.zStart > camZ + FAR) return;
@@ -217,7 +217,7 @@
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(top.x, height);
-    ctx.lineTo(top.x, top.y);
+    ctx.lineTo(top.x, 0);
     ctx.stroke();
 
     // City-wide flash: `flash`/`climbT` are the same for every building this
@@ -229,7 +229,7 @@
       ctx.shadowBlur = 6;
       ctx.beginPath();
       ctx.moveTo(top.x, height);
-      ctx.lineTo(top.x, top.y);
+      ctx.lineTo(top.x, 0);
       ctx.stroke();
       ctx.shadowBlur = 0;
 
@@ -253,7 +253,7 @@
         ctx.strokeStyle = rgba(DIM, 0.22 * t2.alpha);
         ctx.beginPath();
         ctx.moveTo(t2.x, height);
-        ctx.lineTo(t2.x, t2.y);
+        ctx.lineTo(t2.x, 0);
         ctx.stroke();
       }
     }
