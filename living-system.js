@@ -22,6 +22,17 @@
   // happens to make the camera rail trivial to build: chaining
   // `pos.lerp(sectionTarget, sectionProgress)` down the section list
   // composes a smooth multi-stop path with no separate keyframe timeline.
+  //
+  // Every shape also drifts and turns gently on its own real-time clock
+  // (computeLivePos/writeInstance), independent of scroll — that's what
+  // makes the system feel alive rather than a fixed diagram. Edges are
+  // stored as references to their endpoint nodes, not baked positions, so
+  // a connection stays attached to both shapes as they float. While the
+  // visitor is actively scrolling, occasional "sparks" fire between two
+  // shapes that aren't already wired together — sometimes neighbors in
+  // one cluster, sometimes a reach across to an adjacent one — briefly
+  // flaring both ends. Both behaviors are disabled under
+  // prefers-reduced-motion, same as the rest of the scene.
   // ---------------------------------------------------------------------
 
   const canvas = document.getElementById("synapse-canvas");
@@ -135,31 +146,74 @@
   sphereMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SPHERES * 3), 3);
   scene.add(boxMesh, sphereMesh);
 
-  const boxes = []; // { pos, scale, state, opacity, mesh:'box' }
+  const boxes = []; // { pos, scale, state, opacity, floatPhase, floatSpeed, floatAmp, rot, flareStart, flareDur }
   const spheres = [];
   const dummy = new THREE.Object3D();
 
+  // Frame-coherent clock: every position/rotation/flare computation this
+  // frame reads the same timestamp, set once at the top of render().
+  let frameNow = 0;
+
+  function makeNode(pos, scale, state, opacity) {
+    return {
+      pos: pos.clone(), scale, state: state || "dim", opacity: opacity == null ? 1 : opacity,
+      floatPhase: Math.random() * Math.PI * 2,
+      floatSpeed: 0.5 + Math.random() * 0.7,
+      floatAmp: 3 + Math.random() * 4,
+      rot: { x: (Math.random() * 2 - 1), y: (Math.random() * 2 - 1), z: (Math.random() * 2 - 1) },
+      flareStart: -Infinity, flareDur: 0
+    };
+  }
   function addBox(pos, scale, state, opacity) {
-    boxes.push({ pos: pos.clone(), scale, state: state || "dim", opacity: opacity == null ? 1 : opacity });
+    boxes.push(makeNode(pos, scale, state, opacity));
     return boxes.length - 1;
   }
   function addSphere(pos, scale, state, opacity) {
-    spheres.push({ pos: pos.clone(), scale, state: state || "dim", opacity: opacity == null ? 1 : opacity });
+    spheres.push(makeNode(pos, scale, state, opacity));
     return spheres.length - 1;
+  }
+
+  // A node's currently-rendered position: its anchor plus a gentle,
+  // independent drift so the whole scene reads as floating rather than
+  // static. Always a pure function of frameNow, so it's identical
+  // wherever it's called this frame — edges stay attached to the shapes
+  // they connect even though every shape drifts on its own.
+  function computeLivePos(n) {
+    if (reduceMotion) return n.pos;
+    const fx = Math.sin(frameNow * 0.00035 * n.floatSpeed + n.floatPhase) * n.floatAmp;
+    const fy = Math.cos(frameNow * 0.00028 * n.floatSpeed + n.floatPhase * 1.3) * n.floatAmp * 0.8;
+    const fz = Math.sin(frameNow * 0.0003 * n.floatSpeed + n.floatPhase * 0.7) * n.floatAmp * 0.6;
+    return new THREE.Vector3(n.pos.x + fx, n.pos.y + fy, n.pos.z + fz);
+  }
+
+  const FLARE_MS = 450;
+  function flareNode(n) { n.flareStart = frameNow; n.flareDur = FLARE_MS; }
+  function flareAmount(n) {
+    if (n.flareDur <= 0) return 0;
+    return clamp01(1 - (frameNow - n.flareStart) / n.flareDur);
+  }
+
+  function writeInstance(mesh, pool, i) {
+    const n = pool[i];
+    dummy.position.copy(computeLivePos(n));
+    dummy.scale.setScalar(n.scale);
+    if (reduceMotion) {
+      dummy.rotation.set(0, 0, 0);
+    } else {
+      dummy.rotation.set(frameNow * 0.00022 * n.rot.x, frameNow * 0.00022 * n.rot.y, frameNow * 0.00022 * n.rot.z);
+    }
+    dummy.updateMatrix();
+    mesh.setMatrixAt(i, dummy.matrix);
+    const flare = flareAmount(n);
+    const opacity = Math.max(n.opacity, flare);
+    const state = flare > 0.35 ? "cyan" : n.state;
+    const c = COLOR.dimFaint.clone().lerp(stateColor(state), opacity);
+    mesh.instanceColor.setXYZ(i, c.r, c.g, c.b);
   }
 
   function flushInstances() {
     const bCount = Math.min(boxes.length, MAX_BOXES);
-    for (let i = 0; i < bCount; i++) {
-      const n = boxes[i];
-      dummy.position.copy(n.pos);
-      dummy.scale.setScalar(n.scale);
-      dummy.rotation.set(0, 0, 0);
-      dummy.updateMatrix();
-      boxMesh.setMatrixAt(i, dummy.matrix);
-      const c = COLOR.dimFaint.clone().lerp(stateColor(n.state), n.opacity);
-      boxMesh.instanceColor.setXYZ(i, c.r, c.g, c.b);
-    }
+    for (let i = 0; i < bCount; i++) writeInstance(boxMesh, boxes, i);
     for (let i = bCount; i < MAX_BOXES; i++) {
       dummy.position.set(0, 0, 0); dummy.scale.setScalar(0); dummy.updateMatrix();
       boxMesh.setMatrixAt(i, dummy.matrix);
@@ -169,16 +223,7 @@
     boxMesh.count = bCount;
 
     const sCount = Math.min(spheres.length, MAX_SPHERES);
-    for (let i = 0; i < sCount; i++) {
-      const n = spheres[i];
-      dummy.position.copy(n.pos);
-      dummy.scale.setScalar(n.scale);
-      dummy.rotation.set(0, 0, 0);
-      dummy.updateMatrix();
-      sphereMesh.setMatrixAt(i, dummy.matrix);
-      const c = COLOR.dimFaint.clone().lerp(stateColor(n.state), n.opacity);
-      sphereMesh.instanceColor.setXYZ(i, c.r, c.g, c.b);
-    }
+    for (let i = 0; i < sCount; i++) writeInstance(sphereMesh, spheres, i);
     for (let i = sCount; i < MAX_SPHERES; i++) {
       dummy.position.set(0, 0, 0); dummy.scale.setScalar(0); dummy.updateMatrix();
       sphereMesh.setMatrixAt(i, dummy.matrix);
@@ -197,7 +242,9 @@
   // collapse to a zero-length segment, which costs nothing to draw.
   // ---------------------------------------------------------------------
   const MAX_STATIC_EDGES = 260;
-  const MAX_DYNAMIC_EDGES = 80;
+  const NARRATIVE_DYNAMIC_SLOTS = 80;
+  const SPARK_SLOTS = 16;
+  const MAX_DYNAMIC_EDGES = NARRATIVE_DYNAMIC_SLOTS + SPARK_SLOTS;
   const TOTAL_EDGE_SLOTS = MAX_STATIC_EDGES + MAX_DYNAMIC_EDGES;
   const edgePositions = new Float32Array(TOTAL_EDGE_SLOTS * 2 * 3);
   const edgeColors = new Float32Array(TOTAL_EDGE_SLOTS * 2 * 3);
@@ -209,9 +256,12 @@
   edgeGeo.setDrawRange(0, 0);
   scene.add(edgeLines);
 
-  const staticEdges = []; // { a: Vector3, b: Vector3, state, opacity }
-  function addStaticEdge(a, b, state, opacity) {
-    staticEdges.push({ a: a.clone(), b: b.clone(), state: state || "dim", opacity: opacity == null ? 0.5 : opacity });
+  // Edges reference their endpoint nodes by pool + index rather than a
+  // baked position, so a static edge still tracks both of its shapes as
+  // they independently float and rotate.
+  const staticEdges = []; // { poolA, idxA, poolB, idxB, state, opacity }
+  function addStaticEdge(poolA, idxA, poolB, idxB, state, opacity) {
+    staticEdges.push({ poolA, idxA, poolB, idxB, state: state || "dim", opacity: opacity == null ? 0.5 : opacity });
   }
 
   function writeEdgeVertex(slot, which, pos, color) {
@@ -224,9 +274,11 @@
     const n = Math.min(staticEdges.length, MAX_STATIC_EDGES);
     for (let i = 0; i < n; i++) {
       const e = staticEdges[i];
+      const pa = computeLivePos(e.poolA[e.idxA]);
+      const pb = computeLivePos(e.poolB[e.idxB]);
       const c = COLOR.dimFaint.clone().lerp(stateColor(e.state), e.opacity);
-      writeEdgeVertex(i, 0, e.a, c);
-      writeEdgeVertex(i, 1, e.b, c);
+      writeEdgeVertex(i, 0, pa, c);
+      writeEdgeVertex(i, 1, pb, c);
     }
     staticEdgeCount = n;
   }
@@ -311,7 +363,7 @@
         }
       }
     }
-    edgeRefs.forEach(([ai, bi]) => addStaticEdge(boxes[ai].pos, boxes[bi].pos, "dim", 0.4));
+    edgeRefs.forEach(([ai, bi]) => addStaticEdge(boxes, ai, boxes, bi, "dim", 0.4));
 
     // Two "database/cloud" spheres at the back layer.
     const dbIdx = [];
@@ -320,7 +372,7 @@
       const s = addSphere(pos, 16, "dim", 0.14);
       dbIdx.push(s);
       const nearest = grid[layers - 1][i === 0 ? 0 : cols - 1];
-      addStaticEdge(spheres[s].pos, boxes[nearest].pos, "dim", 0.4);
+      addStaticEdge(spheres, s, boxes, nearest, "dim", 0.4);
     }
 
     const path = [];
@@ -338,17 +390,18 @@
       const pos = new THREE.Vector3(CONNECT_CENTER.x + Math.cos(a) * r, CONNECT_CENTER.y + Math.sin(a) * r * 0.6, CONNECT_CENTER.z + Math.sin(a * 1.7) * 30);
       core.push(addBox(pos, 10, "dim", 0.16));
     }
-    for (let i = 0; i < coreCount; i++) addStaticEdge(boxes[core[i]].pos, boxes[core[(i + 1) % coreCount]].pos, "dim", 0.35);
+    for (let i = 0; i < coreCount; i++) addStaticEdge(boxes, core[i], boxes, core[(i + 1) % coreCount], "dim", 0.35);
     const centerIdx = addBox(CONNECT_CENTER.clone(), 13, "dim", 0.2);
-    core.forEach((i) => addStaticEdge(boxes[centerIdx].pos, boxes[i].pos, "dim", 0.3));
+    core.forEach((i) => addStaticEdge(boxes, centerIdx, boxes, i, "dim", 0.3));
 
     const slotCount = 4;
     const slots = [];
     for (let i = 0; i < slotCount; i++) {
       const a = (i / slotCount) * Math.PI * 2 + 0.6;
       const pos = new THREE.Vector3(CONNECT_CENTER.x + Math.cos(a) * 30, CONNECT_CENTER.y + Math.sin(a) * 30, CONNECT_CENTER.z - 20);
-      slots.push({ box: addBox(pos, 9, "amber", 0.22), filled: false, docker: null });
-      addStaticEdge(boxes[centerIdx].pos, pos, "amber", 0.3);
+      const boxIdx = addBox(pos, 9, "amber", 0.22);
+      slots.push({ box: boxIdx, filled: false, docker: null });
+      addStaticEdge(boxes, centerIdx, boxes, boxIdx, "amber", 0.3);
     }
 
     const candidateCount = Math.max(5, Math.round(7 * density));
@@ -396,19 +449,40 @@
       nodes.push(addBox(pos, 7 + Math.random() * 3, "dim", 0.14));
     }
     for (let i = 0; i < nodes.length - 1; i++) {
-      if (Math.random() < 0.3) addStaticEdge(boxes[nodes[i]].pos, boxes[nodes[i + 1]].pos, "dim", 0.28);
+      if (Math.random() < 0.3) addStaticEdge(boxes, nodes[i], boxes, nodes[i + 1], "dim", 0.28);
     }
     return { nodes };
+  }
+
+  // Group ranges (recorded as contiguous slices of `boxes`/`spheres`, since
+  // each cluster builder pushes its nodes in one run) let the spark system
+  // pick a random node from a named group without re-deriving cluster
+  // membership per node.
+  let groupRanges = {};
+  function snapshotRange() { return { boxStart: boxes.length, sphereStart: spheres.length }; }
+  function closeRange(range) {
+    range.boxEnd = boxes.length;
+    range.sphereEnd = spheres.length;
+    return range;
+  }
+  function randomNodeInGroup(name) {
+    const r = groupRanges[name];
+    if (!r) return null;
+    const boxN = r.boxEnd - r.boxStart, sphereN = r.sphereEnd - r.sphereStart;
+    if (boxN <= 0 && sphereN <= 0) return null;
+    if (Math.random() * (boxN + sphereN) < boxN) return { pool: boxes, idx: r.boxStart + Math.floor(Math.random() * boxN) };
+    return { pool: spheres, idx: r.sphereStart + Math.floor(Math.random() * sphereN) };
   }
 
   function rebuildWorld() {
     boxes.length = 0;
     spheres.length = 0;
     staticEdges.length = 0;
-    hero = buildHeroField();
-    build = buildBuildCluster();
-    connect = buildConnectCluster();
-    find = buildFindCluster();
+    groupRanges = {};
+    let r = snapshotRange(); hero = buildHeroField(); groupRanges.hero = closeRange(r);
+    r = snapshotRange(); build = buildBuildCluster(); groupRanges.build = closeRange(r);
+    r = snapshotRange(); connect = buildConnectCluster(); groupRanges.connect = closeRange(r);
+    r = snapshotRange(); find = buildFindCluster(); groupRanges.find = closeRange(r);
     flushInstances();
     flushStaticEdges();
   }
@@ -526,7 +600,7 @@
       for (let i = 0; i < pathLen - 1; i++) {
         const segT = clamp01(travel - i);
         if (segT > 0 && segT < 1) {
-          const a = boxes[build.path[i]].pos, b = boxes[build.path[i + 1]].pos;
+          const a = computeLivePos(boxes[build.path[i]]), b = computeLivePos(boxes[build.path[i + 1]]);
           const p = a.clone().lerp(b, segT);
           writeDynamicEdge(di++, a, p, COLOR.white);
         }
@@ -546,7 +620,7 @@
       const localT = clamp01(t * 1.6 - i * 0.08);
       const sph = spheres[cand.sphere];
       if (cand.slot) {
-        const target = boxes[cand.slot.box].pos;
+        const target = computeLivePos(boxes[cand.slot.box]);
         sph.pos.copy(cand.start).lerp(target, easeOutCubic(localT));
         sph.opacity = lerp(0.3, 0.9, localT);
         sph.state = localT > 0.9 ? "cyan" : "blue";
@@ -579,15 +653,12 @@
 
   const connectSlotEdgeCache = {};
   function findConnectSlotEdge(boxIdx) {
-    if (connectSlotEdgeCache[boxIdx]) return connectSlotEdgeCache[boxIdx];
-    const target = boxes[boxIdx].pos;
-    let best = null, bestD = Infinity;
-    for (const e of staticEdges) {
-      const d = e.b.distanceToSquared(target) + e.a.distanceToSquared(boxes[connect.centerIdx].pos);
-      if (e.b.distanceToSquared(target) < 1 && d < bestD) { best = e; bestD = d; }
-    }
-    connectSlotEdgeCache[boxIdx] = best;
-    return best;
+    if (boxIdx in connectSlotEdgeCache) return connectSlotEdgeCache[boxIdx];
+    const found = staticEdges.find((e) =>
+      (e.poolB === boxes && e.idxB === boxIdx) || (e.poolA === boxes && e.idxA === boxIdx)
+    ) || null;
+    connectSlotEdgeCache[boxIdx] = found;
+    return found;
   }
 
   function easeOutCubic(t) { return 1 - Math.pow(1 - clamp01(t), 3); }
@@ -603,8 +674,9 @@
       const localT = clamp01(t * 1.8 - seed * 0.9);
       if (localT <= 0) return;
       const travel = m.reached ? Math.min(1, localT * 1.1) : Math.min(0.55, localT);
-      const start = boxes[find.anchorIdx].pos;
-      const end = start.clone().lerp(m.pos, travel);
+      const start = computeLivePos(boxes[find.anchorIdx]);
+      const marketPos = computeLivePos(spheres[m.sphere]);
+      const end = start.clone().lerp(marketPos, travel);
       const color = m.reached ? COLOR.cyan : COLOR.amber;
       if (localT < 1.05) writeDynamicEdge(di++, start, end, color);
       if (m.reached) {
@@ -612,8 +684,8 @@
         spheres[m.sphere].opacity = Math.min(0.85, lerp(0.16, 0.85, localT));
         if (localT > 0.85 && localT < 1.02) {
           const backT = clamp01((localT - 0.85) / 0.2);
-          const ret = m.pos.clone().lerp(start, backT);
-          writeDynamicEdge(di++, m.pos, ret, COLOR.white);
+          const ret = marketPos.clone().lerp(start, backT);
+          writeDynamicEdge(di++, marketPos, ret, COLOR.white);
         }
       } else {
         spheres[m.sphere].opacity = Math.min(0.35, lerp(0.16, 0.35, localT));
@@ -664,8 +736,9 @@
   // ---------------------------------------------------------------------
   const raycaster = new THREE.Raycaster();
   const pointerNDC = new THREE.Vector2();
+  let highlightPool = null;
+  let highlightIdx = -1;
   let highlightUntil = 0;
-  let highlightPos = null;
 
   function onTap(clientX, clientY) {
     pointerNDC.x = (clientX / window.innerWidth) * 2 - 1;
@@ -677,13 +750,75 @@
     const pool = hit.object === boxMesh ? boxes : spheres;
     const node = pool[hit.instanceId];
     if (!node) return;
-    highlightPos = node.pos.clone();
-    highlightUntil = performance.now() + 650;
+    highlightPool = pool;
+    highlightIdx = hit.instanceId;
+    highlightUntil = frameNow + 650;
+    flareNode(node);
   }
   window.addEventListener("pointerdown", (e) => onTap(e.clientX, e.clientY));
   window.addEventListener("touchstart", (e) => {
     if (e.touches && e.touches[0]) onTap(e.touches[0].clientX, e.touches[0].clientY);
   }, { passive: true });
+
+  // ---------------------------------------------------------------------
+  // Sparks: while the visitor is actively scrolling, fire an occasional
+  // electrical connection between two shapes that aren't already wired
+  // together — sometimes two neighbors in the same cluster, sometimes a
+  // reach across to an adjacent one — so the scene reads as one system
+  // finding more of its own connections rather than a fixed diagram.
+  // Purely a byproduct of scroll activity: nothing fires while still.
+  // ---------------------------------------------------------------------
+  const GROUP_ORDER = ["hero", "build", "connect", "find"];
+  const sparks = [];
+  let lastSparkTime = -Infinity;
+
+  function spawnSpark() {
+    let a, b;
+    if (Math.random() < 0.45) {
+      const name = GROUP_ORDER[Math.floor(Math.random() * GROUP_ORDER.length)];
+      a = randomNodeInGroup(name);
+      b = randomNodeInGroup(name);
+    } else {
+      let gi = Math.floor(Math.random() * GROUP_ORDER.length);
+      let gj = gi + (Math.random() < 0.7 ? 1 : 2);
+      if (gj >= GROUP_ORDER.length) gj = gi - 1;
+      if (gj < 0) gj = Math.min(GROUP_ORDER.length - 1, gi + 1);
+      a = randomNodeInGroup(GROUP_ORDER[gi]);
+      b = randomNodeInGroup(GROUP_ORDER[gj]);
+    }
+    if (!a || !b || (a.pool === b.pool && a.idx === b.idx)) return;
+    sparks.push({ a, b, born: frameNow, duration: 380 + Math.random() * 260, startFlared: false, endFlared: false });
+    if (sparks.length > SPARK_SLOTS) sparks.shift();
+  }
+
+  function maybeSpawnSpark(scrolling) {
+    if (reduceMotion || !scrolling) return;
+    if (frameNow - lastSparkTime < 240) return;
+    if (Math.random() > 0.6) return;
+    lastSparkTime = frameNow;
+    spawnSpark();
+  }
+
+  function updateSparks() {
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      if (frameNow - sparks[i].born > sparks[i].duration + 260) sparks.splice(i, 1);
+    }
+    for (let i = 0; i < sparks.length; i++) {
+      const s = sparks[i];
+      const age = frameNow - s.born;
+      const travel = clamp01(age / s.duration);
+      const posA = computeLivePos(s.a.pool[s.a.idx]);
+      const posB = computeLivePos(s.b.pool[s.b.idx]);
+      if (!s.startFlared) { flareNode(s.a.pool[s.a.idx]); s.startFlared = true; }
+      if (travel >= 1 && !s.endFlared) { flareNode(s.b.pool[s.b.idx]); s.endFlared = true; }
+      const tip = posA.clone().lerp(posB, easeOutCubic(travel));
+      const fadeOut = age > s.duration ? clamp01(1 - (age - s.duration) / 260) : 1;
+      const alpha = Math.min(1, travel * 3) * fadeOut;
+      const color = COLOR.dimFaint.clone().lerp(COLOR.white, alpha);
+      writeDynamicEdge(NARRATIVE_DYNAMIC_SLOTS + i, posA, tip, color);
+    }
+    for (let i = sparks.length; i < SPARK_SLOTS; i++) clearDynamicSlot(MAX_STATIC_EDGES + NARRATIVE_DYNAMIC_SLOTS + i);
+  }
 
   // ---------------------------------------------------------------------
   // Menu-open burst: brief brightness wash, kept for compatibility with
@@ -713,8 +848,15 @@
   // ---------------------------------------------------------------------
   // Frame loop
   // ---------------------------------------------------------------------
+  let lastScrollY = null;
   function render() {
+    frameNow = performance.now();
     updateCamera();
+
+    const scrollY = window.scrollY;
+    const scrolling = lastScrollY !== null && Math.abs(scrollY - lastScrollY) > 0.5;
+    lastScrollY = scrollY;
+    maybeSpawnSpark(scrolling);
 
     let di = 0;
     di = updateBuild();
@@ -722,10 +864,10 @@
     di = updateFind(di);
     di = updateScale(di);
     updateContact();
-    for (let i = di; i < MAX_DYNAMIC_EDGES; i++) clearDynamicSlot(MAX_STATIC_EDGES + i);
+    for (let i = di; i < NARRATIVE_DYNAMIC_SLOTS; i++) clearDynamicSlot(MAX_STATIC_EDGES + i);
+    updateSparks();
 
-    const now = performance.now();
-    const boost = now < burstUntil ? 1.4 : 1;
+    const boost = frameNow < burstUntil ? 1.4 : 1;
     boxMesh.material.opacity = nodeMatOpacityFade * boost;
     sphereMesh.material.opacity = nodeMatOpacityFade * boost;
 
@@ -736,13 +878,15 @@
     edgeGeo.attributes.color.needsUpdate = true;
 
     if (!reduceMotion) {
-      dust.rotation.y = now * 0.000015;
+      dust.rotation.y = frameNow * 0.000015;
     }
 
-    if (highlightPos && now < highlightUntil) {
-      const a = 1 - (now - (highlightUntil - 650)) / 650;
+    if (highlightPool && frameNow < highlightUntil) {
+      const a = 1 - (frameNow - (highlightUntil - 650)) / 650;
       for (const e of staticEdges) {
-        if (e.a.distanceToSquared(highlightPos) < 1 || e.b.distanceToSquared(highlightPos) < 1) {
+        const touches = (e.poolA === highlightPool && e.idxA === highlightIdx) ||
+          (e.poolB === highlightPool && e.idxB === highlightIdx);
+        if (touches) {
           e.opacity = Math.max(e.opacity, 0.9 * a);
           e.state = "cyan";
         }
