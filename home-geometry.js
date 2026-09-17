@@ -6,8 +6,14 @@
   // facades are dark circuit-board glass — no text anywhere in the scene.
   // The canyon lines run uninterrupted from the top of each building down to
   // the bottom of the screen, with overhead bridges lighting up as the
-  // camera passes beneath them. No node webs, no literal neural network, no
-  // ground-level road — everything is tower, bridge and pulse.
+  // camera passes beneath them. As the camera approaches each building, a
+  // bright electric pulse races along its line — alternating up/down line by
+  // line on each side — so the charge appears to start at the frontmost
+  // pair of lines and cascade outward, building by building, toward the
+  // farthest one. The whole effect is a pure function of scroll position
+  // (camZ), so it advances only while scrolling and holds still the instant
+  // it stops. No node webs, no literal neural network, no ground-level road
+  // — everything is tower, bridge and pulse.
 
   const canvas = document.getElementById("synapse-canvas");
   if (!canvas) return;
@@ -37,6 +43,7 @@
   const EYE_BASE = 130;
   const HALF_WIDTH_BASE = 130;
   const Z_PER_PIXEL = 3.2;
+  const PULSE_RANGE = 260;
 
   // ---------------------------------------------------------------------
   // Path: the canyon curves left/right and the camera rises/dives, purely
@@ -192,7 +199,7 @@
   // at the screen's bottom edge to carry every line all the way down —
   // there's no separate "ground" point to project for that.
   // ---------------------------------------------------------------------
-  function drawBuilding(b) {
+  function drawBuilding(b, index) {
     if (b.zEnd < camZ - 40 || b.zStart > camZ + FAR) return;
     const wallXAt = (z) => pathX(z) + b.side * halfWidthAt(z);
     const refZ = Math.max(b.zStart, camZ + NEAR + 1);
@@ -208,6 +215,38 @@
     ctx.moveTo(top.x, height);
     ctx.lineTo(top.x, top.y);
     ctx.stroke();
+
+    // Electric pulse: purely a function of how close this building's line
+    // is to the camera (its projected depth), so it only advances while
+    // scrolling. Buildings are walked in ascending world-z order, so each
+    // one enters its pulse window strictly after the ones in front of it —
+    // that ordering alone produces the front-to-back cascade. Direction
+    // alternates line by line (even index climbs, odd index descends).
+    const t = clamp01(1 - (top.depth - NEAR) / PULSE_RANGE);
+    const pulseAlpha = smoothstep(0, 0.15, t) * (1 - smoothstep(0.85, 1, t));
+    if (pulseAlpha > 0.02) {
+      const climbing = index % 2 === 0;
+      const travel = climbing ? t : 1 - t;
+      const dotY = travel * b.height;
+      const p = project(wallX, dotY, refZ);
+      if (p && p.alpha > 0.02) {
+        const pa = pulseAlpha * p.alpha;
+        ctx.strokeStyle = rgba(CYAN, 0.55 * pa);
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        if (climbing) { ctx.moveTo(top.x, height); ctx.lineTo(p.x, p.y); }
+        else { ctx.moveTo(top.x, top.y); ctx.lineTo(p.x, p.y); }
+        ctx.stroke();
+
+        ctx.fillStyle = rgba(WHITE, pa);
+        ctx.shadowColor = rgba(CYAN, 0.95 * pa);
+        ctx.shadowBlur = 14;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, Math.max(1.6, 3 * p.scale), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
 
     for (const f of [0.35, 0.7]) {
       const z2 = b.zStart + (b.zEnd - b.zStart) * f;
@@ -297,8 +336,8 @@
       ctx.restore();
     }
 
-    for (const b of leftBuildings) drawBuilding(b);
-    for (const b of rightBuildings) drawBuilding(b);
+    leftBuildings.forEach((b, i) => drawBuilding(b, i));
+    rightBuildings.forEach((b, i) => drawBuilding(b, i));
 
     ctx.restore();
     drawVignette();
