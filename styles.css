@@ -423,7 +423,13 @@ button.pillar-more {
 .connect-line { display: block; }
 .hero-bullet {
   font-weight: 700;
+  color: var(--ink-1);
+}
+.hero-bullet-accent {
   color: var(--accent-cyan);
+}
+.hero-bullets {
+  text-align: right;
 }
 .closing-tagline {
   margin-top: 1.8rem;
