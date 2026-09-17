@@ -40,6 +40,8 @@
 
   const BLUE = theme.primary || [92, 178, 250];
   const AMBER = theme.accent || [255, 165, 80];
+  const WORD_COLOR = theme.wordColor || [235, 244, 255];
+  const WORD_GLOW = theme.wordGlow || [150, 200, 255];
 
   // ---------------------------------------------------------------------
   // State
@@ -451,9 +453,9 @@
       ctx.font = "600 20px 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.shadowColor = `rgba(150,200,255,${alpha})`;
+      ctx.shadowColor = `rgba(${WORD_GLOW[0]},${WORD_GLOW[1]},${WORD_GLOW[2]},${alpha})`;
       ctx.shadowBlur = 18;
-      ctx.fillStyle = `rgba(235,244,255,${alpha})`;
+      ctx.fillStyle = `rgba(${WORD_COLOR[0]},${WORD_COLOR[1]},${WORD_COLOR[2]},${alpha})`;
       ctx.fillText(f.word, 0, 0);
       ctx.restore();
     }
