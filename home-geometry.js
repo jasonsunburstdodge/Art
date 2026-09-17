@@ -180,9 +180,9 @@
   }
 
   // ---------------------------------------------------------------------
-  // Street: curving lane lines + forward-motion dashes.
+  // Street: curving lane lines + a bright pulse train that only advances
+  // with camZ (i.e. only while the page is actually being scrolled).
   // ---------------------------------------------------------------------
-  let dashPhase = 0;
   function drawStreet() {
     const offsets = [0, 0.55, 1];
     for (const f of offsets) {
@@ -206,18 +206,24 @@
       }
     }
 
-    if (!reduceMotion) dashPhase = (dashPhase + 6) % 90;
-    for (let i = 0; i < 14; i++) {
-      const z = camZ + 20 + ((i * 90 + dashPhase) % (FAR - 20));
+    // Pulses of light sit at fixed world-distance intervals, so their
+    // screen position only changes when camZ itself changes (i.e. scrolling).
+    const spacing = 130;
+    const firstZ = Math.ceil((camZ + 20) / spacing) * spacing;
+    for (let i = 0; i < 10; i++) {
+      const z = firstZ + i * spacing;
       const p = project(pathX(z), 0, z);
       if (!p || p.alpha <= 0.02) continue;
-      ctx.fillStyle = rgba(WHITE, 0.35 * p.alpha);
-      const s = Math.max(0.6, 6 * p.scale);
+      const s = Math.max(0.9, 8 * p.scale);
+      ctx.fillStyle = rgba(WHITE, 0.95 * p.alpha);
+      ctx.shadowColor = rgba(CYAN, 0.9 * p.alpha);
+      ctx.shadowBlur = 8;
       ctx.fillRect(p.x - s / 2, p.y - 1, s, 2);
+      ctx.shadowBlur = 0;
     }
   }
 
-  function drawBridge(b, now) {
+  function drawBridge(b) {
     const lit = smoothstep(b.z - 90, b.z + 10, camZ);
     const hw = halfWidthAt(b.z);
     const xL = pathX(b.z) - hw, xR = pathX(b.z) + hw;
@@ -234,12 +240,17 @@
     ctx.lineTo(pR.x, pR.y);
     ctx.stroke();
     if (lit > 0.5) {
-      const t = reduceMotion ? 0.5 : (now * 0.0004 + b.z * 0.01) % 1;
+      // A single bright sweep across the span as the camera passes beneath
+      // it — position comes only from camZ, so it only moves on scroll.
+      const t = clamp01((camZ - (b.z - 60)) / 130);
       const px = lerp(pL.x, pR.x, t), py = lerp(pL.y, pR.y, t);
-      ctx.fillStyle = rgba(WHITE, 0.8 * a);
+      ctx.fillStyle = rgba(WHITE, a);
+      ctx.shadowColor = rgba(CYAN, 0.9 * a);
+      ctx.shadowBlur = 10;
       ctx.beginPath();
-      ctx.arc(px, py, 2.2, 0, Math.PI * 2);
+      ctx.arc(px, py, 2.6, 0, Math.PI * 2);
       ctx.fill();
+      ctx.shadowBlur = 0;
     }
   }
 
@@ -296,20 +307,26 @@
       const py = climb * b.height;
       const p = project(wallX, py, refZ);
       if (p && p.alpha > 0.02) {
-        ctx.fillStyle = rgba(WHITE, 0.85 * p.alpha);
+        ctx.fillStyle = rgba(WHITE, p.alpha);
+        ctx.shadowColor = rgba(CYAN, 0.95 * p.alpha);
+        ctx.shadowBlur = 12;
         ctx.beginPath();
         ctx.arc(p.x, p.y, Math.max(1.4, 2.6 * p.scale), 0, Math.PI * 2);
         ctx.fill();
+        ctx.shadowBlur = 0;
       }
     } else if (climb <= 0.01 && camZ > b.zStart - 130 && camZ < b.zStart) {
       const t = clamp01((camZ - (b.zStart - 130)) / 130);
       const sx = lerp(pathX(refZ), wallX, t);
       const p = project(sx, 0, refZ);
       if (p && p.alpha > 0.02) {
-        ctx.fillStyle = rgba(CYAN, 0.7 * p.alpha);
+        ctx.fillStyle = rgba(WHITE, 0.95 * p.alpha);
+        ctx.shadowColor = rgba(CYAN, 0.9 * p.alpha);
+        ctx.shadowBlur = 10;
         ctx.beginPath();
         ctx.arc(p.x, p.y, Math.max(1.2, 2.4 * p.scale), 0, Math.PI * 2);
         ctx.fill();
+        ctx.shadowBlur = 0;
       }
     }
 
@@ -332,6 +349,74 @@
       ctx.shadowColor = rgba(CYAN, 0.8 * lit * p.alpha);
       ctx.shadowBlur = 6 * lit;
       ctx.fillText(letters[i], p.x, p.y);
+    }
+    ctx.shadowBlur = 0;
+  }
+
+  // ---------------------------------------------------------------------
+  // Junction buildings: at the start of each pillar district, a closer,
+  // foreground tower briefly lights top-to-bottom spelling out that
+  // pillar's actual service name. Purely a function of camZ, so it only
+  // plays out while scrolling and can be scrubbed back and forth.
+  // ---------------------------------------------------------------------
+  let junctions = [];
+  function buildJunctions() {
+    junctions = [
+      { z: bounds.build[0], side: -1, label: "SOFTWARE DEVELOPMENT" },
+      { z: bounds.connect[0], side: 1, label: "IT STAFFING" },
+      { z: bounds.find[0], side: -1, label: "DIGITAL MARKETING" }
+    ];
+  }
+
+  function drawJunction(j) {
+    // The flash has to finish while the building is still ahead of the
+    // camera (positive depth) — it must not straddle j.z itself, or the
+    // "brightest" moment would land exactly where depth hits zero and
+    // clips. So the whole window sits in front of j.z, brief and close.
+    const farZ = j.z - 260, nearZ = j.z - 90;
+    const t = clamp01((camZ - farZ) / (nearZ - farZ));
+    if (t <= 0.01 || t >= 0.99) return;
+
+    const height = 640;
+    const wx = pathX(j.z) + j.side * halfWidthAt(j.z) * 0.55;
+    const base = project(wx, 0, j.z);
+    const top = project(wx, height, j.z);
+    if (!base || !top) return;
+    const a = base.alpha;
+    if (a <= 0.02) return;
+
+    ctx.strokeStyle = rgba(DIM, 0.45 * a);
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(base.x, base.y);
+    ctx.lineTo(top.x, top.y);
+    ctx.stroke();
+
+    const rise = clamp01(t / 0.4);
+    const fall = clamp01((t - 0.6) / 0.4);
+    const letters = j.label.split("");
+    const n = letters.length;
+    const spacing = 28;
+    const fontPx = Math.max(0, 28 * base.scale);
+    if (fontPx < 3) return;
+    ctx.font = `700 ${fontPx}px 'IBM Plex Mono', ui-monospace, monospace`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (let i = 0; i < n; i++) {
+      const ch = letters[i];
+      if (ch === " ") continue;
+      const posFromTop = i / n;
+      const litRise = smoothstep(posFromTop, posFromTop + 1 / n, rise);
+      const litFall = smoothstep(posFromTop, posFromTop + 1 / n, fall);
+      const lit = litRise * (1 - litFall);
+      if (lit <= 0.02) continue;
+      const wy = height - 70 - i * spacing;
+      const p = project(wx, wy, j.z);
+      if (!p || p.alpha <= 0.02) continue;
+      ctx.fillStyle = rgba(WHITE, Math.min(1, lit) * p.alpha);
+      ctx.shadowColor = rgba(CYAN, 0.95 * lit * p.alpha);
+      ctx.shadowBlur = 10 * lit;
+      ctx.fillText(ch, p.x, p.y);
     }
     ctx.shadowBlur = 0;
   }
@@ -389,6 +474,7 @@
   function measureAndRebuild() {
     measure();
     buildCity();
+    buildJunctions();
     buildRunners();
   }
 
@@ -429,7 +515,7 @@
     if (boost > 1) ctx.globalAlpha = 1;
 
     drawStreet();
-    for (const br of bridges) drawBridge(br, animNow);
+    for (const br of bridges) drawBridge(br);
 
     const district = districtAt(camZ);
     if (district === "find" || district === "scale") drawRunners();
@@ -444,6 +530,7 @@
 
     for (const b of leftBuildings) drawBuilding(b, animNow);
     for (const b of rightBuildings) drawBuilding(b, animNow);
+    for (const j of junctions) drawJunction(j);
 
     ctx.restore();
     drawVignette();
