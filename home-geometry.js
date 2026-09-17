@@ -3,12 +3,13 @@
 
   // Homepage-only background: a circuit-city flythrough. Scrolling moves the
   // camera forward through a canyon of close, oversized skyscrapers whose
-  // facades are dark circuit-board glass. Crossing into a new stretch of a
-  // pillar's vocabulary spawns a big electric-blue word at a random spot in
-  // the open sky between the buildings; several can be in flight at once if
-  // you scroll briskly. Once spawned, a word's fade-in/hold/fade-out runs on
-  // its own clock — it keeps playing out, and every building keeps sending
-  // its synced electric-blue pulse up its own facade, even if the page stops
+  // facades are dark circuit-board glass — no text on the buildings
+  // themselves. Crossing into a new stretch of a pillar's vocabulary spawns
+  // a small electric-blue word scattered at a random spot across the
+  // screen; several can be in flight at once if you scroll briskly. Once
+  // spawned, a word's fade-in/hold/fade-out runs on its own clock — it
+  // keeps playing out, and every building keeps sending its synced
+  // electric-blue pulse up its own facade, even if the page stops
   // scrolling mid-flash. Reduced-motion visitors get the same beats without
   // the free-running clock: one word, tied strictly to scroll position, so
   // nothing moves without their input. No node webs, no literal neural
@@ -316,78 +317,10 @@
   }
 
   // ---------------------------------------------------------------------
-  // Junction buildings: at the start of each pillar district, a closer,
-  // foreground tower briefly lights top-to-bottom spelling out that
-  // pillar's actual service name. Purely a function of camZ, so it only
-  // plays out while scrolling and can be scrubbed back and forth.
-  // ---------------------------------------------------------------------
-  let junctions = [];
-  function buildJunctions() {
-    junctions = [
-      { z: bounds.build[0], side: -1, label: "SOFTWARE DEVELOPMENT" },
-      { z: bounds.connect[0], side: 1, label: "IT STAFFING" },
-      { z: bounds.find[0], side: -1, label: "DIGITAL MARKETING" }
-    ];
-  }
-
-  function drawJunction(j) {
-    // The flash has to finish while the building is still ahead of the
-    // camera (positive depth) — it must not straddle j.z itself, or the
-    // "brightest" moment would land exactly where depth hits zero and
-    // clips. So the whole window sits in front of j.z, brief and close.
-    const farZ = j.z - 260, nearZ = j.z - 90;
-    const t = clamp01((camZ - farZ) / (nearZ - farZ));
-    if (t <= 0.01 || t >= 0.99) return;
-
-    const height = 640;
-    const wx = pathX(j.z) + j.side * halfWidthAt(j.z) * 0.55;
-    const base = project(wx, 0, j.z);
-    const top = project(wx, height, j.z);
-    if (!base || !top) return;
-    const a = base.alpha;
-    if (a <= 0.02) return;
-
-    ctx.strokeStyle = rgba(DIM, 0.45 * a);
-    ctx.lineWidth = 1.3;
-    ctx.beginPath();
-    ctx.moveTo(base.x, base.y);
-    ctx.lineTo(top.x, top.y);
-    ctx.stroke();
-
-    const rise = clamp01(t / 0.4);
-    const fall = clamp01((t - 0.6) / 0.4);
-    const letters = j.label.split("");
-    const n = letters.length;
-    const spacing = 28;
-    const fontPx = Math.max(0, 28 * base.scale);
-    if (fontPx < 3) return;
-    ctx.font = `700 ${fontPx}px 'IBM Plex Mono', ui-monospace, monospace`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    for (let i = 0; i < n; i++) {
-      const ch = letters[i];
-      if (ch === " ") continue;
-      const posFromTop = i / n;
-      const litRise = smoothstep(posFromTop, posFromTop + 1 / n, rise);
-      const litFall = smoothstep(posFromTop, posFromTop + 1 / n, fall);
-      const lit = litRise * (1 - litFall);
-      if (lit <= 0.02) continue;
-      const wy = height - 70 - i * spacing;
-      const p = project(wx, wy, j.z);
-      if (!p || p.alpha <= 0.02) continue;
-      ctx.fillStyle = rgba(WHITE, Math.min(1, lit) * p.alpha);
-      ctx.shadowColor = rgba(CYAN, 0.95 * lit * p.alpha);
-      ctx.shadowBlur = 10 * lit;
-      ctx.fillText(ch, p.x, p.y);
-    }
-    ctx.shadowBlur = 0;
-  }
-
-  // ---------------------------------------------------------------------
-  // Sky words: big electric-blue text that lights up at a random spot in
-  // the open gap between the two walls of buildings, then fades away —
-  // one word slot per fixed stretch of world distance, so a new one only
-  // triggers by scrolling further into it. Which list plays is just
+  // Sky words: small electric-blue text that lights up at a random spot
+  // scattered anywhere on screen, then fades away — one word slot per
+  // fixed stretch of world distance, so a new one only triggers by
+  // scrolling further into it. Which list plays is just
   // whichever district camZ is in; the FIND finale gets its own slower,
   // dedicated slots. Crossing into a slot only *spawns* the word; once
   // spawned (see wordEvents below) its own fade-in/hold/fade-out clock —
@@ -438,10 +371,10 @@
   let lastSlotKey = null;
 
   function spawnWordEvent(word, spawnMs) {
-    const marginX = width * 0.16;
+    const marginX = width * 0.06;
     const x = marginX + Math.random() * Math.max(10, width - marginX * 2);
-    const yTop = Math.max(76, height * 0.14);
-    const yBottom = Math.max(yTop + 10, cy - height * 0.08);
+    const yTop = Math.max(70, height * 0.08);
+    const yBottom = Math.max(yTop + 10, height * 0.9);
     const y = yTop + Math.random() * (yBottom - yTop);
     wordEvents.push({ word, x, y, spawnMs });
     if (wordEvents.length > 5) wordEvents.shift();
@@ -449,7 +382,7 @@
 
   function drawSkyWord(word, x, y, a) {
     if (a <= 0.01) return;
-    const fontPx = Math.min(width, height) * 0.1;
+    const fontPx = Math.min(width, height) * 0.036;
     ctx.save();
     ctx.globalAlpha = a;
     ctx.font = `800 ${fontPx}px 'IBM Plex Mono', ui-monospace, monospace`;
@@ -516,7 +449,6 @@
   function measureAndRebuild() {
     measure();
     buildCity();
-    buildJunctions();
     buildRunners();
     wordEvents = [];
     lastSlotKey = null;
@@ -600,7 +532,6 @@
 
     for (const b of leftBuildings) drawBuilding(b, flash, climbT);
     for (const b of rightBuildings) drawBuilding(b, flash, climbT);
-    for (const j of junctions) drawJunction(j);
 
     if (reduceMotion) {
       if (sw) drawSkyWord(sw.word, cx, cy - height * 0.22, flash);
