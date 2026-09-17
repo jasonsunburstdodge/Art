@@ -6,11 +6,11 @@
   // facades are dark circuit-board glass — no text anywhere in the scene.
   // The canyon lines run uninterrupted from the top of each building down to
   // the bottom of the screen, with overhead bridges lighting up as the
-  // camera passes beneath them. As the camera approaches each building, a
-  // bright electric pulse races along its line — alternating up/down line by
-  // line on each side — so the charge appears to start at the frontmost
-  // pair of lines and cascade outward, building by building, toward the
-  // farthest one. The whole effect is a pure function of scroll position
+  // camera passes beneath them. Every fixed stretch of scrolling, every
+  // building line in the canyon lights up electric blue at once, holds, and
+  // fades away together — a single shared `flash` value computed once per
+  // frame from scroll position and handed to every building, so the whole
+  // canyon pulses in lockstep. It's a pure function of scroll position
   // (camZ), so it advances only while scrolling and holds still the instant
   // it stops. No node webs, no literal neural network, no ground-level road
   // — everything is tower, bridge and pulse.
@@ -43,7 +43,16 @@
   const EYE_BASE = 130;
   const HALF_WIDTH_BASE = 130;
   const Z_PER_PIXEL = 3.2;
-  const PULSE_RANGE = 260;
+
+  // A full appear/hold/fade cycle happens once per FLASH_SPACING of scroll
+  // distance, repeating for as long as you keep scrolling forward.
+  const FLASH_SPACING = 300;
+  const PULSE_CLIMB_FRACTION = 0.14;
+  function flashEnvelope(rel) {
+    const fadeIn = smoothstep(0, 0.05, rel);
+    const fadeOut = 1 - smoothstep(0.12, 0.5, rel);
+    return fadeIn * fadeOut;
+  }
 
   // ---------------------------------------------------------------------
   // Path: the canyon curves left/right and the camera rises/dives, purely
@@ -199,7 +208,7 @@
   // at the screen's bottom edge to carry every line all the way down —
   // there's no separate "ground" point to project for that.
   // ---------------------------------------------------------------------
-  function drawBuilding(b, index) {
+  function drawBuilding(b, flash, climbT) {
     if (b.zEnd < camZ - 40 || b.zStart > camZ + FAR) return;
     const wallXAt = (z) => pathX(z) + b.side * halfWidthAt(z);
     const refZ = Math.max(b.zStart, camZ + NEAR + 1);
@@ -216,30 +225,20 @@
     ctx.lineTo(top.x, top.y);
     ctx.stroke();
 
-    // Electric pulse: purely a function of how close this building's line
-    // is to the camera (its projected depth), so it only advances while
-    // scrolling. Buildings are walked in ascending world-z order, so each
-    // one enters its pulse window strictly after the ones in front of it —
-    // that ordering alone produces the front-to-back cascade. Direction
-    // alternates line by line (even index climbs, odd index descends).
-    const t = clamp01(1 - (top.depth - NEAR) / PULSE_RANGE);
-    const pulseAlpha = smoothstep(0, 0.15, t) * (1 - smoothstep(0.85, 1, t));
-    if (pulseAlpha > 0.02) {
-      const climbing = index % 2 === 0;
-      const travel = climbing ? t : 1 - t;
-      const dotY = travel * b.height;
-      const p = project(wallX, dotY, refZ);
-      if (p && p.alpha > 0.02) {
-        const pa = pulseAlpha * p.alpha;
-        ctx.strokeStyle = rgba(CYAN, 0.55 * pa);
-        ctx.lineWidth = 1.4;
-        ctx.beginPath();
-        if (climbing) { ctx.moveTo(top.x, height); ctx.lineTo(p.x, p.y); }
-        else { ctx.moveTo(top.x, top.y); ctx.lineTo(p.x, p.y); }
-        ctx.stroke();
+    // City-wide flash: `flash`/`climbT` are the same for every building this
+    // frame, so every line brightens and fades in lockstep.
+    if (flash > 0.02) {
+      ctx.strokeStyle = rgba(CYAN, 0.7 * flash * a);
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(top.x, height);
+      ctx.lineTo(top.x, top.y);
+      ctx.stroke();
 
-        ctx.fillStyle = rgba(WHITE, pa);
-        ctx.shadowColor = rgba(CYAN, 0.95 * pa);
+      const p = project(wallX, climbT * b.height, refZ);
+      if (p && p.alpha > 0.02) {
+        ctx.fillStyle = rgba(WHITE, flash * p.alpha);
+        ctx.shadowColor = rgba(CYAN, 0.95 * flash * p.alpha);
         ctx.shadowBlur = 14;
         ctx.beginPath();
         ctx.arc(p.x, p.y, Math.max(1.6, 3 * p.scale), 0, Math.PI * 2);
@@ -320,6 +319,10 @@
     camX = pathX(camZ);
     camY = eyeY(camZ);
 
+    const rel = ((camZ % FLASH_SPACING) + FLASH_SPACING) % FLASH_SPACING / FLASH_SPACING;
+    const flash = flashEnvelope(rel);
+    const climbT = clamp01(rel / PULSE_CLIMB_FRACTION);
+
     const boost = animNow < burstUntil ? 1.35 : 1;
 
     ctx.clearRect(0, 0, width, height);
@@ -336,8 +339,8 @@
       ctx.restore();
     }
 
-    leftBuildings.forEach((b, i) => drawBuilding(b, i));
-    rightBuildings.forEach((b, i) => drawBuilding(b, i));
+    for (const b of leftBuildings) drawBuilding(b, flash, climbT);
+    for (const b of rightBuildings) drawBuilding(b, flash, climbT);
 
     ctx.restore();
     drawVignette();
