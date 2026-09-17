@@ -213,7 +213,7 @@
   // lockstep.
   // ---------------------------------------------------------------------
   const FADE_REST = 0.12;
-  const FADE_SCROLL = 0.32;
+  const FADE_SCROLL = 0.45;
   const FADE_IN_MS = 320;
   const FADE_OUT_MS = 320;
   let fade = FADE_REST;
