@@ -4,9 +4,9 @@
   // ---------------------------------------------------------------------
   // SilverXis kinetic background. Full-viewport, homepage-only, replaces
   // the previous canvas background entirely. Everything visible here is
-  // built by this file into #kinetic-bg — index.html owns no words, cards,
-  // or ticker text of its own; the real hero and page content are
-  // untouched underneath.
+  // built by this file into #kinetic-bg — index.html owns no words or
+  // cards of its own; the real hero and page content are untouched
+  // underneath.
   //
   // Motion:
   //   - Giant word (BUILD/SCALE/GROW) cross-fades on its own loop.
@@ -18,14 +18,13 @@
   //     same angle so size and position stay perfectly in sync: smallest
   //     at the top of the orbit, half-max at the sides, full size at the
   //     bottom — giving the ring a "tilted circle" depth illusion.
-  //   - Cards/logo sit translucent at rest; any pointer/touch/scroll
-  //     activity snaps them to full brightness, which then decays back to
-  //     translucent at half that speed. The card outline and the bottom
-  //     ticker are exempt and stay fully visible always.
+  //   - Cards/logo/card outlines sit translucent at rest; any
+  //     pointer/touch/scroll activity snaps them to full brightness, which
+  //     then decays back to translucent at half that speed.
   //
-  // Under prefers-reduced-motion, the ring holds still at fixed positions,
-  // the word doesn't cycle, and the ticker doesn't scroll — nothing here
-  // moves without the visitor's own input.
+  // Under prefers-reduced-motion, the ring holds still at fixed positions
+  // and the word doesn't cycle — nothing here moves without the visitor's
+  // own input.
   // ---------------------------------------------------------------------
 
   const root = document.getElementById("kinetic-bg");
@@ -63,15 +62,10 @@
     { kicker: "Grow", title: "GROWTH SYSTEMS", desc: "Technology, people, and marketing moving together." }
   ];
   const CARD_COUNT = 6;
-  const TICKER_ITEMS = [
-    ["Custom Software Development", ["Web Applications", "Mobile Applications", "AI & Machine Learning", "API Integrations", "Cloud Solutions", "Legacy Modernization", "Workflow Automation"]],
-    ["IT Staff Augmentation", ["Dedicated Teams", "IT Consulting", "IT Recruitment", "Contract Talent", "Onshore Talent", "Nearshore Teams", "Offshore Teams"]],
-    ["Digital Marketing Services", ["SEO", "AEO & GEO", "Website Development", "Content Strategy", "Social Media", "PPC", "Analytics & Reporting"]]
-  ];
 
   // ---------------------------------------------------------------------
-  // Build static DOM (words, orbit shell, logo, cards, ticker). All of it
-  // lives inside #kinetic-bg, which the page already marks aria-hidden.
+  // Build static DOM (words, orbit shell, logo, cards). All of it lives
+  // inside #kinetic-bg, which the page already marks aria-hidden.
   // ---------------------------------------------------------------------
   const wordsEl = document.createElement("div");
   wordsEl.className = "kb-words";
@@ -160,43 +154,10 @@
     electrons.push({ el, angle: (Math.PI * 2 * i) / ELECTRON_COUNT });
   }
 
-  const railEl = document.createElement("div");
-  railEl.className = "kb-rail";
-  const trackEl = document.createElement("div");
-  trackEl.className = "kb-rail-track";
-  const trackEl2 = document.createElement("div");
-  trackEl2.className = "kb-rail-track kb-rail-track-secondary";
-  function fillTrack(el, reverseGroups) {
-    el.innerHTML = "";
-    const groups = reverseGroups ? TICKER_ITEMS.slice().reverse() : TICKER_ITEMS;
-    for (let rep = 0; rep < 2; rep++) {
-      groups.forEach(([label, items]) => {
-        const strong = document.createElement("strong");
-        strong.textContent = label;
-        el.appendChild(strong);
-        const list = reverseGroups ? items.slice().reverse() : items;
-        list.forEach((item) => {
-          const i = document.createElement("i");
-          const span = document.createElement("span");
-          span.textContent = item;
-          el.appendChild(i);
-          el.appendChild(span);
-        });
-        const em = document.createElement("em");
-        el.appendChild(em);
-      });
-    }
-  }
-  fillTrack(trackEl, false);
-  fillTrack(trackEl2, true);
-  railEl.appendChild(trackEl);
-  railEl.appendChild(trackEl2);
-
   root.appendChild(auraEl);
   root.appendChild(svgEl);
   root.appendChild(wordsEl);
   root.appendChild(orbitEl);
-  root.appendChild(railEl);
 
   function applyCardContent(card) {
     const c = CONTENT[card.contentIndex];
@@ -247,8 +208,8 @@
   // ---------------------------------------------------------------------
   // Interaction brightness: any pointer/touch/scroll snaps to full
   // brightness; it then decays back to the translucent resting level at
-  // half that speed. Card outlines and the ticker are never touched by
-  // this — only --kb-fade, which drives card-inner/logo opacity.
+  // half that speed. --kb-fade drives card-inner/logo/card-outline
+  // opacity together, so they all fade in and out in lockstep.
   // ---------------------------------------------------------------------
   const FADE_REST = 0.22;
   const FADE_IN_MS = 160;

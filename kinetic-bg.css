@@ -126,7 +126,7 @@
   width: min(300px, 60vw);
   height: min(140px, 28vw);
   transform: translate(-50%, -50%) rotate(24deg);
-  animation: kb-spin-tilt 18s linear infinite;
+  animation: kb-spin-tilt 52s linear infinite;
 }
 .kb-core-ring.r3 {
   width: min(150px, 30vw);
@@ -211,8 +211,9 @@
 .kb-card {
   position: absolute;
   width: min(220px, 48vw);
-  border: 1.5px solid var(--accent-cyan);
+  border: 1.5px solid rgba(47, 134, 245, var(--kb-fade));
   border-radius: 12px;
+  transition: border-color 0.18s linear;
   will-change: transform;
 }
 .kb-card-inner {
@@ -249,54 +250,7 @@
   color: var(--ink-2);
 }
 
-/* Bottom scrolling ticker rails — always full brightness. Two rows,
-   scrolling in opposite directions at different speeds. */
-.kb-rail {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 64px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 0.35rem;
-  background: linear-gradient(to top, rgba(2, 4, 10, 0.55), rgba(2, 4, 10, 0));
-  border-top: 1px solid rgba(95, 205, 251, 0.16);
-}
-.kb-rail-track {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  white-space: nowrap;
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  letter-spacing: 0.06em;
-  color: var(--ink-2);
-  opacity: 1;
-  animation: kb-rail-scroll 42s linear infinite;
-  padding-left: 100%;
-}
-.kb-rail-track strong { color: var(--accent-cyan); font-weight: 600; }
-.kb-rail-track i { width: 3px; height: 3px; border-radius: 50%; background: var(--accent-line); flex: none; }
-.kb-rail-track-secondary {
-  font-size: 0.6rem;
-  color: rgba(200, 208, 220, 0.5);
-  animation: kb-rail-scroll-reverse 55s linear infinite;
-}
-.kb-rail-track-secondary strong { color: rgba(95, 205, 251, 0.65); }
-@keyframes kb-rail-scroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(-100%); }
-}
-@keyframes kb-rail-scroll-reverse {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(0); }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .kb-rail-track { animation: none; }
   .kb-word { transition: none; }
   .kb-logo-wrap, .kb-card-inner { transition: none; }
   .kb-aurora.a, .kb-aurora.b { animation: none; }
