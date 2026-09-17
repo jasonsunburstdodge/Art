@@ -6,14 +6,13 @@
   // facades are dark circuit-board glass — no text anywhere in the scene.
   // The canyon lines run uninterrupted from the top of each building down to
   // the bottom of the screen, with overhead bridges lighting up as the
-  // camera passes beneath them. Every fixed stretch of scrolling, every
-  // building line in the canyon lights up electric blue at once, holds, and
-  // fades away together — a single shared `flash` value computed once per
-  // frame from scroll position and handed to every building, so the whole
-  // canyon pulses in lockstep. It's a pure function of scroll position
-  // (camZ), so it advances only while scrolling and holds still the instant
-  // it stops. No node webs, no literal neural network, no ground-level road
-  // — everything is tower, bridge and pulse.
+  // camera passes beneath them. Every building line in the canyon glows
+  // electric blue in lockstep: brightness snaps to full the instant the
+  // page moves and stays there for as long as scrolling continues, then
+  // holds and fades away smoothly over real time once scrolling stops.
+  // Reduced-motion visitors get the on/off version with no lingering fade,
+  // so nothing moves without their input. No node webs, no literal neural
+  // network, no ground-level road — everything is tower, bridge and pulse.
 
   const canvas = document.getElementById("synapse-canvas");
   if (!canvas) return;
@@ -44,15 +43,11 @@
   const HALF_WIDTH_BASE = 130;
   const Z_PER_PIXEL = 3.2;
 
-  // A full appear/hold/fade cycle happens once per FLASH_SPACING of scroll
-  // distance, repeating for as long as you keep scrolling forward.
-  const FLASH_SPACING = 300;
-  const PULSE_CLIMB_FRACTION = 0.14;
-  function flashEnvelope(rel) {
-    const fadeIn = smoothstep(0, 0.05, rel);
-    const fadeOut = 1 - smoothstep(0.12, 0.5, rel);
-    return fadeIn * fadeOut;
-  }
+  // Brightness snaps to full the instant camZ moves, then decays back to 0
+  // over FADE_MS of real time once movement stops — "stays bright while
+  // scrolling, fades out after."
+  const FADE_MS = 700;
+  const CLIMB_UNIT = 220;
 
   // ---------------------------------------------------------------------
   // Path: the canyon curves left/right and the camera rises/dives, purely
@@ -228,12 +223,15 @@
     // City-wide flash: `flash`/`climbT` are the same for every building this
     // frame, so every line brightens and fades in lockstep.
     if (flash > 0.02) {
-      ctx.strokeStyle = rgba(CYAN, 0.7 * flash * a);
-      ctx.lineWidth = 1.4;
+      ctx.strokeStyle = rgba(CYAN, 0.95 * flash * a);
+      ctx.lineWidth = 1.6;
+      ctx.shadowColor = rgba(CYAN, 0.8 * flash * a);
+      ctx.shadowBlur = 6;
       ctx.beginPath();
       ctx.moveTo(top.x, height);
       ctx.lineTo(top.x, top.y);
       ctx.stroke();
+      ctx.shadowBlur = 0;
 
       const p = project(wallX, climbT * b.height, refZ);
       if (p && p.alpha > 0.02) {
@@ -312,6 +310,10 @@
     ctx.fillRect(0, 0, width, height);
   }
 
+  let brightness = 0;
+  let prevCamZ = null;
+  let prevFrameTime = null;
+
   function frame(now) {
     const animNow = reduceMotion ? 0 : now;
     const y = window.scrollY + height * 0.5;
@@ -319,9 +321,20 @@
     camX = pathX(camZ);
     camY = eyeY(camZ);
 
-    const rel = ((camZ % FLASH_SPACING) + FLASH_SPACING) % FLASH_SPACING / FLASH_SPACING;
-    const flash = flashEnvelope(rel);
-    const climbT = clamp01(rel / PULSE_CLIMB_FRACTION);
+    const scrolling = prevCamZ !== null && Math.abs(camZ - prevCamZ) > 0.01;
+    prevCamZ = camZ;
+
+    let flash;
+    if (reduceMotion) {
+      // Strictly on/off with scroll position — no lingering real-time fade.
+      flash = scrolling ? 1 : 0;
+    } else {
+      const dt = prevFrameTime !== null ? now - prevFrameTime : 16;
+      brightness = scrolling ? 1 : Math.max(0, brightness - dt / FADE_MS);
+      flash = brightness;
+    }
+    prevFrameTime = now;
+    const climbT = clamp01((((camZ % CLIMB_UNIT) + CLIMB_UNIT) % CLIMB_UNIT) / CLIMB_UNIT);
 
     const boost = animNow < burstUntil ? 1.35 : 1;
 
