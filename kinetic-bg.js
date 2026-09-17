@@ -207,13 +207,13 @@
 
   // ---------------------------------------------------------------------
   // Interaction brightness: any pointer/touch/scroll snaps to full
-  // brightness; it then decays back to the translucent resting level at
-  // half that speed. --kb-fade drives card-inner/logo/card-outline
-  // opacity together, so they all fade in and out in lockstep.
+  // brightness; it then decays back to the translucent resting level
+  // quickly. --kb-fade drives card-inner/logo/card-outline opacity
+  // together, so they all fade in and out in lockstep.
   // ---------------------------------------------------------------------
   const FADE_REST = 0.22;
   const FADE_IN_MS = 160;
-  const FADE_OUT_MS = 320;
+  const FADE_OUT_MS = 160;
   let fade = FADE_REST;
   let fadeTarget = FADE_REST;
   let fadeRateMs = FADE_OUT_MS;

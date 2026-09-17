@@ -126,13 +126,13 @@
   width: min(300px, 60vw);
   height: min(140px, 28vw);
   transform: translate(-50%, -50%) rotate(24deg);
-  animation: kb-spin-tilt 52s linear infinite;
+  animation: kb-spin-tilt 104s linear infinite;
 }
 .kb-core-ring.r3 {
   width: min(150px, 30vw);
   height: min(340px, 68vw);
   transform: translate(-50%, -50%) rotate(-32deg);
-  animation: kb-spin-tall 22s linear infinite;
+  animation: kb-spin-tall 44s linear infinite;
 }
 @keyframes kb-spin {
   from { transform: translate(-50%, -50%) rotate(0deg); }
@@ -162,16 +162,17 @@
   will-change: transform;
 }
 
-/* Giant rotating word (BUILD / SCALE / GROW) */
+/* Giant rotating word (BUILD / SCALE / GROW) — centered on the top
+   quarter of the viewport */
 .kb-words {
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 .kb-word {
   position: absolute;
+  top: 25%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   font-family: var(--font-display);
   font-weight: 800;
   font-size: clamp(3.6rem, 20vw, 12rem);
