@@ -211,7 +211,7 @@
   // quickly. --kb-fade drives card-inner/logo/card-outline opacity
   // together, so they all fade in and out in lockstep.
   // ---------------------------------------------------------------------
-  const FADE_REST = 0.22;
+  const FADE_REST = 0.12;
   const FADE_IN_MS = 160;
   const FADE_OUT_MS = 160;
   let fade = FADE_REST;
@@ -320,7 +320,7 @@
       });
     }
     layoutStatic();
-    root.style.setProperty("--kb-fade", "0.4");
+    root.style.setProperty("--kb-fade", "0.3");
     window.addEventListener("resize", () => {
       measure();
       layoutStatic();

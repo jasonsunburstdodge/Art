@@ -35,9 +35,9 @@
   left: 8%;
   top: 12%;
   background: radial-gradient(circle,
-    rgba(95, 205, 251, 0.22) 0%,
-    rgba(95, 205, 251, 0.14) 28%,
-    rgba(95, 205, 251, 0.06) 50%,
+    rgba(95, 205, 251, 0.4) 0%,
+    rgba(95, 205, 251, 0.26) 28%,
+    rgba(95, 205, 251, 0.11) 50%,
     rgba(95, 205, 251, 0) 72%);
   animation: kb-aurora-drift-a 22s ease-in-out infinite;
 }
@@ -47,9 +47,9 @@
   right: 6%;
   bottom: 8%;
   background: radial-gradient(circle,
-    rgba(64, 130, 255, 0.2) 0%,
-    rgba(64, 130, 255, 0.12) 28%,
-    rgba(64, 130, 255, 0.05) 50%,
+    rgba(64, 130, 255, 0.36) 0%,
+    rgba(64, 130, 255, 0.22) 28%,
+    rgba(64, 130, 255, 0.09) 50%,
     rgba(64, 130, 255, 0) 72%);
   animation: kb-aurora-drift-b 26s ease-in-out infinite;
 }
@@ -115,6 +115,8 @@
   border-radius: 50%;
   background: var(--ink-1);
   box-shadow: 0 0 8px 2px rgba(95, 205, 251, 0.9), 0 0 16px 4px rgba(95, 205, 251, 0.4);
+  opacity: var(--kb-fade);
+  transition: opacity 0.18s linear;
 }
 .kb-core-ring.r1 {
   width: min(230px, 46vw);
@@ -147,7 +149,8 @@
   to { transform: translate(-50%, -50%) rotate(328deg); }
 }
 
-/* Electrons: small glowing points tracing the orbit track */
+/* Electrons: small glowing points tracing the orbit track — fade in
+   sync with the cards/logo, same rest translucency and reaction. */
 .kb-electron {
   position: absolute;
   left: 0;
@@ -157,7 +160,8 @@
   border-radius: 50%;
   background: var(--ink-1);
   box-shadow: 0 0 6px 2px rgba(95, 205, 251, 0.9), 0 0 14px 4px rgba(95, 205, 251, 0.4);
-  opacity: 0.85;
+  opacity: var(--kb-fade);
+  transition: opacity 0.18s linear;
   z-index: 25;
   will-change: transform;
 }
@@ -253,7 +257,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .kb-word { transition: none; }
-  .kb-logo-wrap, .kb-card-inner { transition: none; }
+  .kb-logo-wrap, .kb-card, .kb-card-inner, .kb-core-ring::after { transition: none; }
   .kb-aurora.a, .kb-aurora.b { animation: none; }
   .kb-electron { display: none; }
   .kb-spoke { animation: none; }
