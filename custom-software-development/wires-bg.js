@@ -2,10 +2,16 @@
   "use strict";
 
   // ---------------------------------------------------------------------
-  // Custom Software Development background: a dense, tangled bundle of
-  // wires hangs from a glowing cloud at the top of the screen and
-  // branches downward — splitting into two (occasionally three) groups
-  // at each level — until each strand ends at a small glowing box.
+  // Custom Software Development background: an upside-down tree made of
+  // thin twisted wire, hanging from a glowing cloud at the top of the
+  // screen — a long twisted trunk that fans into a crown of major root
+  // branches, each of which splits again and again into thinner, wavier
+  // twigs, ending in loose wire tips with a small glowing box.
+  //
+  // Every strand is thin; a branch only reads as "thick" because several
+  // thin blue/white/silverxis-blue wires are twisted together along it —
+  // more of them near the trunk, fewer as it forks apart, down to one
+  // single wavy wire per twig.
   //
   // Idle, the cloud breathes gently and the wires sit dim. Scrolling
   // fires an electrical pulse down a random root-to-box path; the pulse
@@ -23,14 +29,25 @@
 
   const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const MAX_DEPTH = 5;
+  const TRUNK_LEVELS = 2; // unsplit twisted trunk before the crown of root branches
+  const BRANCH_LEVELS = 4; // further binary-ish forking below the crown
+  const MAX_DEPTH = TRUNK_LEVELS + BRANCH_LEVELS;
+  const DEPTH_WEIGHTS = [1.6, 1.3, 1.0, 0.9, 0.8, 0.7]; // trunk runs long; branches get shorter
+
   const EDGE_TRAVEL_MS = 210; // time for a pulse to cross one branch
   const AFTERGLOW_MS = 550; // how long a crossed branch stays lit after the pulse leaves
   const FLARE_MS = 650; // box flare duration on arrival
   const MAX_PULSES = 14;
   const SPAWN_THROTTLE_MS = 90;
   const SPAWN_STAGGER_MS = 260; // "different times"
-  const STRAND_CAP = 9; // max parallel strands drawn per cable, however many leaves it feeds
+  const STRAND_CAP = 9; // max thin wires twisted together in any one cable
+
+  // Thin blue, white, and SilverXis-blue — cycled across a bundle's strands.
+  const WIRE_COLORS = [
+    [140, 190, 255], // thin blue
+    [235, 244, 255], // white
+    [47, 134, 245]   // SilverXis blue
+  ];
 
   let dpr = Math.min(window.devicePixelRatio || 1, 2);
   let W = 0, H = 0;
@@ -49,43 +66,59 @@
     };
   }
 
+  function bezierTangent(edge, t) {
+    const mt = 1 - t;
+    const dx = 3 * mt * mt * (edge.c1.x - edge.p0.x) + 6 * mt * t * (edge.c2.x - edge.c1.x) + 3 * t * t * (edge.p1.x - edge.c2.x);
+    const dy = 3 * mt * mt * (edge.c1.y - edge.p0.y) + 6 * mt * t * (edge.c2.y - edge.c1.y) + 3 * t * t * (edge.p1.y - edge.c2.y);
+    const len = Math.hypot(dx, dy) || 1;
+    return { x: dx / len, y: dy / len };
+  }
+
   function makeEdge(ax, ay, bx, by, depth) {
     const dx = bx - ax, dy = by - ay;
     return {
       p0: { x: ax, y: ay },
-      c1: { x: ax + dx * (0.22 + Math.random() * 0.22) + (Math.random() - 0.5) * 46, y: ay + dy * (0.12 + Math.random() * 0.18) },
-      c2: { x: ax + dx * (0.62 + Math.random() * 0.22) + (Math.random() - 0.5) * 46, y: ay + dy * (0.72 + Math.random() * 0.18) },
+      c1: { x: ax + dx * (0.22 + Math.random() * 0.22) + (Math.random() - 0.5) * 30, y: ay + dy * (0.12 + Math.random() * 0.18) },
+      c2: { x: ax + dx * (0.62 + Math.random() * 0.22) + (Math.random() - 0.5) * 30, y: ay + dy * (0.72 + Math.random() * 0.18) },
       p1: { x: bx, y: by },
-      width: Math.max(0.6, 2.4 - depth * 0.34),
       glowUntil: 0,
       strands: [],
       leafCount: 1
     };
   }
 
-  // A "cable" carrying many leaves renders as several tangled parallel
-  // strands (the crowded trunk look); one carrying a single leaf renders
-  // as the one clean wire that actually reaches that box. Strands are
-  // generated once at build time, not re-jittered per frame.
+  // A cable feeding many leaves is several thin wires twisted around the
+  // same path (the rope-like trunk/branch look); one feeding a single
+  // leaf is the one loose, gently wavy wire that actually reaches it.
+  // Sampled to a polyline once at build time, not re-jittered per frame.
+  const SAMPLE_STEPS = 14;
   function makeStrands(edge, count, depth) {
-    const spread = Math.max(3, 22 - depth * 4);
+    const twisted = count > 1;
+    const freq = twisted ? 2.2 + Math.random() * 0.6 : 0.9 + Math.random() * 0.5;
+    const amp = twisted ? 3.2 + Math.random() * 1.4 : 4.5 + Math.random() * 3;
     const strands = [];
     for (let i = 0; i < count; i++) {
-      const j = () => (Math.random() - 0.5) * spread;
-      strands.push({
-        p0: { x: edge.p0.x + j() * 0.3, y: edge.p0.y + j() * 0.15 },
-        c1: { x: edge.c1.x + j(), y: edge.c1.y + j() },
-        c2: { x: edge.c2.x + j(), y: edge.c2.y + j() },
-        p1: { x: edge.p1.x + j() * 0.3, y: edge.p1.y + j() * 0.15 }
-      });
+      const phase = twisted ? (Math.PI * 2 * i) / count : Math.random() * Math.PI * 2;
+      const points = [];
+      for (let s = 0; s <= SAMPLE_STEPS; s++) {
+        const t = s / SAMPLE_STEPS;
+        const base = bezierPoint(edge, t);
+        const tan = bezierTangent(edge, t);
+        const nx = -tan.y, ny = tan.x;
+        const taper = Math.sin(Math.PI * t); // 0 at both ends so wires meet cleanly at nodes/boxes
+        const wave = Math.sin(t * freq * Math.PI * 2 + phase) * amp * taper;
+        points.push({ x: base.x + nx * wave, y: base.y + ny * wave });
+      }
+      strands.push({ points, color: WIRE_COLORS[i % WIRE_COLORS.length], width: Math.max(0.55, 1.2 - depth * 0.06) });
     }
     return strands;
   }
 
   // ---------------------------------------------------------------------
-  // Tree build: recursive slot-partitioning so branches spread across the
-  // width without every leaf colliding, while still allowing enough
-  // overlap between neighboring slots to read as "tangled."
+  // Tree build: a long unsplit trunk (TRUNK_LEVELS), then a crown of
+  // several major root branches, each forking roughly in two the rest
+  // of the way down. Slot-partitioning keeps siblings spread across the
+  // width while still allowing a little overlap to read as tangled.
   // ---------------------------------------------------------------------
   function buildTree() {
     edges = [];
@@ -93,29 +126,36 @@
 
     const marginX = W * 0.05;
     const rootX = W * 0.5, rootY = H * 0.085;
-    const yStep = (H * 0.8) / MAX_DEPTH;
+    const totalY = H * 0.8;
+    const weightSum = DEPTH_WEIGHTS.reduce((a, b) => a + b, 0);
+    const yStepAt = DEPTH_WEIGHTS.map((w) => (totalY * w) / weightSum);
 
     function branch(x, y, depth, xMin, xMax, parentEdge) {
       if (depth >= MAX_DEPTH) {
         leaves.push({ x, y, path: buildPath(parentEdge), flareStart: 0 });
         return 1;
       }
-      let k = 2;
-      const r = Math.random();
-      if (depth <= 1 && r < 0.32) k = 3;
-      else if (depth >= 3 && r < 0.14) k = 1;
+      let k;
+      if (depth < TRUNK_LEVELS) {
+        k = 1; // straight twisted trunk, no split yet
+      } else if (depth === TRUNK_LEVELS) {
+        k = 4 + ((Math.random() * 2) | 0); // crown: 4-5 major root branches fan out here
+      } else {
+        k = Math.random() < 0.16 ? 1 : 2; // mostly binary, occasional early stop for irregularity
+      }
 
       const range = xMax - xMin;
       const slot = range / k;
-      const overlap = range * 0.025;
+      const overlap = range * 0.03;
+      const yStep = yStepAt[depth];
       let leafTotal = 0;
       for (let i = 0; i < k; i++) {
         const slotMin = xMin + i * slot;
         const slotMax = slotMin + slot;
-        const pad = slot * 0.14;
-        const cx = k === 1 ? (slotMin + slotMax) / 2 + (Math.random() - 0.5) * slot * 0.3
+        const pad = slot * 0.16;
+        const cx = k === 1 ? (slotMin + slotMax) / 2 + (Math.random() - 0.5) * slot * 0.25
           : slotMin + pad + Math.random() * Math.max(1, slot - pad * 2);
-        const cy = y + yStep + (Math.random() - 0.5) * yStep * 0.3;
+        const cy = y + yStep + (Math.random() - 0.5) * yStep * 0.25;
         const edge = makeEdge(x, y, cx, cy, depth);
         edge.parent = parentEdge;
         edges.push(edge);
@@ -167,6 +207,13 @@
   // ---------------------------------------------------------------------
   // Drawing
   // ---------------------------------------------------------------------
+  function strokePolyline(points) {
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+    ctx.stroke();
+  }
+
   function strokeBezier(e) {
     ctx.beginPath();
     ctx.moveTo(e.p0.x, e.p0.y);
@@ -176,7 +223,7 @@
 
   function drawWisps() {
     ctx.strokeStyle = "rgba(150, 195, 255, 0.16)";
-    ctx.lineWidth = 0.8;
+    ctx.lineWidth = 0.7;
     for (const w of wisps) strokeBezier(w);
   }
 
@@ -212,14 +259,18 @@
     for (const e of edges) {
       const glowAlpha = e.glowUntil > now ? (e.glowUntil - now) / AFTERGLOW_MS : 0;
 
-      ctx.strokeStyle = "rgba(120, 170, 230, 0.2)";
-      ctx.lineWidth = e.width;
-      for (const s of e.strands) strokeBezier(s);
+      for (const s of e.strands) {
+        const [r, g, b] = s.color;
+        ctx.strokeStyle = `rgba(${r},${g},${b},0.32)`;
+        ctx.lineWidth = s.width;
+        strokePolyline(s.points);
 
-      if (glowAlpha > 0.02) {
-        ctx.strokeStyle = `rgba(255,255,255,${(glowAlpha * 0.9).toFixed(3)})`;
-        ctx.lineWidth = e.width + 1.2;
-        for (const s of e.strands) strokeBezier(s);
+        if (glowAlpha > 0.02) {
+          const gr = Math.min(255, r + 90), gg = Math.min(255, g + 90), gb = Math.min(255, b + 90);
+          ctx.strokeStyle = `rgba(${gr},${gg},${gb},${(glowAlpha * 0.95).toFixed(3)})`;
+          ctx.lineWidth = s.width + 1;
+          strokePolyline(s.points);
+        }
       }
     }
   }
@@ -241,17 +292,17 @@
       const t = flaring ? age / FLARE_MS : 1;
       const boost = flaring ? 1 - t : 0;
 
-      ctx.strokeStyle = `rgba(150, 205, 255, ${(0.35 + boost * 0.55).toFixed(3)})`;
-      ctx.lineWidth = 1;
-      roundRect(leaf.x - 7, leaf.y - 7, 14, 14, 3);
+      ctx.strokeStyle = `rgba(150, 205, 255, ${(0.3 + boost * 0.55).toFixed(3)})`;
+      ctx.lineWidth = 0.9;
+      roundRect(leaf.x - 5, leaf.y - 5, 10, 10, 2);
       ctx.stroke();
 
-      const dot = ctx.createRadialGradient(leaf.x, leaf.y, 0, leaf.x, leaf.y, 5 + boost * 6);
-      dot.addColorStop(0, `rgba(255,255,255,${(0.55 + boost * 0.45).toFixed(3)})`);
+      const dot = ctx.createRadialGradient(leaf.x, leaf.y, 0, leaf.x, leaf.y, 4 + boost * 6);
+      dot.addColorStop(0, `rgba(255,255,255,${(0.5 + boost * 0.5).toFixed(3)})`);
       dot.addColorStop(1, "rgba(150,205,255,0)");
       ctx.fillStyle = dot;
       ctx.beginPath();
-      ctx.arc(leaf.x, leaf.y, 5 + boost * 6, 0, Math.PI * 2);
+      ctx.arc(leaf.x, leaf.y, 4 + boost * 6, 0, Math.PI * 2);
       ctx.fill();
 
       if (flaring) {
