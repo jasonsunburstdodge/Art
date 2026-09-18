@@ -3,8 +3,9 @@
 
   // ---------------------------------------------------------------------
   // Custom Software Development background: the SilverXis shield sits
-  // solid and opaque at the center of the screen. Scrolling makes it
-  // light up, and fires a burst of tiny, bright, single-color spark
+  // at the center of the screen, invisible at rest. Scrolling fades it
+  // into view; when scrolling stops, it quickly fades back out. Each
+  // scroll also fires a burst of tiny, bright, single-color spark
   // dashes (white, blue, SilverXis blue, orange) outward from it in a
   // random direction — up, down, left, or right — staggered a moment
   // apart. Each spark moves in straight horizontal/vertical hops,
@@ -37,8 +38,10 @@
 
   const shieldImg = new Image();
   shieldImg.src = "../assets/silverxis-shield.png";
-  const SHIELD_REST_ALPHA = 0.92; // "very opaque" at rest
-  const SHIELD_LIGHT_DECAY_MS = 700; // how long the "lit" boost takes to fade after scrolling stops
+  const SHIELD_MAX_ALPHA = 0.95; // fully faded in, while actively scrolling
+  const SHIELD_FADE_IN_MS = 260;
+  const SHIELD_FADE_OUT_MS = 180; // "quickly fades out" once scrolling stops
+  const SHIELD_REST_DELAY_MS = 90; // gap of no scroll events before fade-out begins
 
   // White, blue, SilverXis blue, and orange — each spark is a single
   // flat one of these, never a blend.
@@ -78,7 +81,13 @@
   let sparks = [];
   let components = [];
   let lastSpawnTime = 0;
-  let lastScrollTime = -Infinity;
+  let lastFrameTime = null;
+  let shieldAlpha = 0;
+  let shieldTarget = 0;
+  let shieldRateMs = SHIELD_FADE_OUT_MS;
+  let shieldRestTimer = null;
+
+  function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
 
   function pathWithLengths(points) {
     const segs = [];
@@ -317,7 +326,15 @@
   // ---------------------------------------------------------------------
   function onScroll() {
     const now = performance.now();
-    lastScrollTime = now;
+
+    shieldTarget = 1;
+    shieldRateMs = SHIELD_FADE_IN_MS;
+    if (shieldRestTimer) clearTimeout(shieldRestTimer);
+    shieldRestTimer = setTimeout(() => {
+      shieldTarget = 0;
+      shieldRateMs = SHIELD_FADE_OUT_MS;
+    }, SHIELD_REST_DELAY_MS);
+
     if (now - lastSpawnTime < SPAWN_THROTTLE_MS) return;
     lastSpawnTime = now;
 
@@ -338,17 +355,20 @@
   }
 
   // ---------------------------------------------------------------------
-  // The shield: solid and opaque at rest, brightening while (and just
-  // after) the visitor scrolls.
+  // The shield: invisible at rest, fading into view while scrolling and
+  // quickly back out once scrolling stops.
   // ---------------------------------------------------------------------
-  function drawShield(now) {
-    const boost = reduceMotion ? 0 : Math.max(0, 1 - (now - lastScrollTime) / SHIELD_LIGHT_DECAY_MS);
+  function drawShield(now, dt) {
+    if (!reduceMotion) {
+      shieldAlpha += (shieldTarget - shieldAlpha) * clamp01(dt / shieldRateMs);
+    }
+    const alpha = shieldAlpha * SHIELD_MAX_ALPHA;
     const size = Math.min(W, H) * 0.16;
 
-    if (boost > 0.02) {
+    if (alpha > 0.02) {
       const glow = ctx.createRadialGradient(shieldX, shieldY, 0, shieldX, shieldY, size * 1.3);
-      glow.addColorStop(0, `rgba(255,255,255,${(0.55 * boost).toFixed(3)})`);
-      glow.addColorStop(0.5, `rgba(120,180,255,${(0.28 * boost).toFixed(3)})`);
+      glow.addColorStop(0, `rgba(255,255,255,${(0.55 * alpha).toFixed(3)})`);
+      glow.addColorStop(0.5, `rgba(120,180,255,${(0.28 * alpha).toFixed(3)})`);
       glow.addColorStop(1, "rgba(120,180,255,0)");
       ctx.fillStyle = glow;
       ctx.beginPath();
@@ -356,8 +376,8 @@
       ctx.fill();
     }
 
-    if (shieldImg.complete && shieldImg.naturalWidth > 0) {
-      ctx.globalAlpha = Math.min(1, SHIELD_REST_ALPHA + boost * (1 - SHIELD_REST_ALPHA));
+    if (alpha > 0.02 && shieldImg.complete && shieldImg.naturalWidth > 0) {
+      ctx.globalAlpha = alpha;
       ctx.drawImage(shieldImg, shieldX - size / 2, shieldY - size / 2, size, size);
       ctx.globalAlpha = 1;
     }
@@ -367,11 +387,13 @@
   // Frame loop
   // ---------------------------------------------------------------------
   function frame(now) {
+    const dt = lastFrameTime != null ? now - lastFrameTime : 16;
+    lastFrameTime = now;
     ctx.clearRect(0, 0, W, H);
     updateSparks(now);
     drawComponents(now);
     drawSparks(now);
-    drawShield(now);
+    drawShield(now, dt);
     if (!reduceMotion) requestAnimationFrame(frame);
   }
 
