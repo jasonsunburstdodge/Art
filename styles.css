@@ -474,6 +474,37 @@ button.pillar-more {
 }
 .summary-text:last-child { margin-bottom: 0; }
 
+/* ---- Testimonial ---- */
+.testimonial { flex-direction: column; justify-content: center; text-align: center; }
+.testimonial-inner { max-width: 760px; margin: 0 auto; }
+.testimonial-mark {
+  font-family: var(--font-display);
+  font-size: 3.5rem;
+  line-height: 1;
+  color: var(--accent-cyan);
+  opacity: 0.55;
+  margin-bottom: 0.6rem;
+}
+.testimonial-quote {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(1.3rem, 2.6vw, 1.9rem);
+  line-height: 1.5;
+  color: var(--ink-1);
+}
+.testimonial-attribution {
+  margin-top: 1.8rem;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.testimonial-attribution strong {
+  color: var(--accent-cyan);
+  font-weight: 600;
+}
+
 footer {
   position: relative;
   z-index: 1;
