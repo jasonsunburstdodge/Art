@@ -1,0 +1,16 @@
+/* ------------------------------------------------------------------
+   IT Staffing page background: a scattered network of talent nodes
+   that connect into team structures as the page scrolls, page-scoped
+   (not the shared #synapse-canvas used on other subpages).
+------------------------------------------------------------------- */
+
+#talent-bg-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  pointer-events: none;
+  background: radial-gradient(ellipse 100% 80% at 50% 25%, var(--bg-navy) 0%, var(--bg-navy-mid) 55%, var(--bg-void) 100%);
+  z-index: 0;
+}
