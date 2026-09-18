@@ -14,10 +14,11 @@
   // single wavy wire per twig.
   //
   // Idle, the cloud breathes gently and the wires sit dim. Scrolling
-  // fires an electrical pulse down a random root-to-box path; the pulse
-  // travels branch by branch, leaving each branch it crosses brighter
-  // for a moment before that residual glow fades, and the box at the
-  // end of its path flares briefly when the pulse arrives.
+  // fires one tiny white spark per wire color, each starting a moment
+  // apart, down a random root-to-box path. Each spark travels its own
+  // single wire — not the whole bundle it passes through — leaving a
+  // short glow on that one wire that fades quickly, and the box at the
+  // end of its path flares briefly when the spark arrives.
   //
   // Under prefers-reduced-motion: no breathing, no pulses, one static
   // render — nothing here moves without being asked to.
@@ -35,12 +36,12 @@
   const DEPTH_WEIGHTS = [1.6, 1.3, 1.0, 0.9, 0.8, 0.7]; // trunk runs long; branches get shorter
 
   const EDGE_TRAVEL_MS = 210; // time for a pulse to cross one branch
-  const AFTERGLOW_MS = 550; // how long a crossed branch stays lit after the pulse leaves
+  const AFTERGLOW_MS = 240; // how long a spark's glow lingers on its wire — fades quickly
   const FLARE_MS = 650; // box flare duration on arrival
-  const MAX_PULSES = 14;
-  const SPAWN_THROTTLE_MS = 90;
-  const SPAWN_STAGGER_MS = 260; // "different times"
-  const STRAND_CAP = 9; // max thin wires twisted together in any one cable
+  const MAX_PULSES = 30;
+  const SPAWN_THROTTLE_MS = 140; // each tick spawns one pulse per color, staggered
+  const SPAWN_STAGGER_MS = 90; // gap between each color's start within one spawn burst
+  const STRAND_CAP = 45; // max thin wires twisted together in any one cable (5x the original 9)
 
   // Thin blue, white, and SilverXis-blue — cycled across a bundle's strands.
   const WIRE_COLORS = [
@@ -81,7 +82,6 @@
       c1: { x: ax + dx * (0.22 + Math.random() * 0.22) + (Math.random() - 0.5) * 30, y: ay + dy * (0.12 + Math.random() * 0.18) },
       c2: { x: ax + dx * (0.62 + Math.random() * 0.22) + (Math.random() - 0.5) * 30, y: ay + dy * (0.72 + Math.random() * 0.18) },
       p1: { x: bx, y: by },
-      glowUntil: 0,
       strands: [],
       leafCount: 1
     };
@@ -109,7 +109,7 @@
         const wave = Math.sin(t * freq * Math.PI * 2 + phase) * amp * taper;
         points.push({ x: base.x + nx * wave, y: base.y + ny * wave });
       }
-      strands.push({ points, color: WIRE_COLORS[i % WIRE_COLORS.length], width: Math.max(0.55, 1.2 - depth * 0.06) });
+      strands.push({ points, color: WIRE_COLORS[i % WIRE_COLORS.length], width: Math.max(0.55, 1.2 - depth * 0.06), glowUntil: 0 });
     }
     return strands;
   }
@@ -257,14 +257,13 @@
 
   function drawEdges(now) {
     for (const e of edges) {
-      const glowAlpha = e.glowUntil > now ? (e.glowUntil - now) / AFTERGLOW_MS : 0;
-
       for (const s of e.strands) {
         const [r, g, b] = s.color;
         ctx.strokeStyle = `rgba(${r},${g},${b},0.32)`;
         ctx.lineWidth = s.width;
         strokePolyline(s.points);
 
+        const glowAlpha = s.glowUntil > now ? (s.glowUntil - now) / AFTERGLOW_MS : 0;
         if (glowAlpha > 0.02) {
           const gr = Math.min(255, r + 90), gg = Math.min(255, g + 90), gb = Math.min(255, b + 90);
           ctx.strokeStyle = `rgba(${gr},${gg},${gb},${(glowAlpha * 0.95).toFixed(3)})`;
@@ -316,20 +315,32 @@
     }
   }
 
+  function pointOnPolyline(points, t) {
+    const idx = t * (points.length - 1);
+    const i0 = Math.floor(idx);
+    const i1 = Math.min(points.length - 1, i0 + 1);
+    const frac = idx - i0;
+    const a = points[i0], b = points[i1];
+    return { x: a.x + (b.x - a.x) * frac, y: a.y + (b.y - a.y) * frac };
+  }
+
   function drawPulses(now) {
     for (const p of pulses) {
       if (now < p.startAt || !p.pos) continue;
-      const glow = ctx.createRadialGradient(p.pos.x, p.pos.y, 0, p.pos.x, p.pos.y, 10);
+      const glow = ctx.createRadialGradient(p.pos.x, p.pos.y, 0, p.pos.x, p.pos.y, 5);
       glow.addColorStop(0, "rgba(255,255,255,0.95)");
-      glow.addColorStop(0.4, "rgba(150,205,255,0.65)");
-      glow.addColorStop(1, "rgba(150,205,255,0)");
+      glow.addColorStop(0.5, "rgba(255,255,255,0.55)");
+      glow.addColorStop(1, "rgba(255,255,255,0)");
       ctx.fillStyle = glow;
       ctx.beginPath();
-      ctx.arc(p.pos.x, p.pos.y, 10, 0, Math.PI * 2);
+      ctx.arc(p.pos.x, p.pos.y, 5, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
+  // Each pulse rides exactly one specific wire (one strand per edge along
+  // its path, chosen by color), so only that wire lights up — not the
+  // whole bundle it travels through.
   function updatePulses(now) {
     for (let i = pulses.length - 1; i >= 0; i--) {
       const p = pulses[i];
@@ -342,22 +353,28 @@
         continue;
       }
       const edge = p.path[edgeIdx];
+      const strand = edge.strands[p.colorIdx % edge.strands.length];
       const tInEdge = (elapsed % EDGE_TRAVEL_MS) / EDGE_TRAVEL_MS;
-      edge.glowUntil = now + AFTERGLOW_MS;
-      p.pos = bezierPoint(edge, tInEdge);
+      strand.glowUntil = now + AFTERGLOW_MS;
+      p.pos = pointOnPolyline(strand.points, tInEdge);
     }
   }
 
   // ---------------------------------------------------------------------
-  // Scroll-triggered pulses
+  // Scroll-triggered pulses: each spawn fires one spark per wire color,
+  // each starting at a slightly different moment.
   // ---------------------------------------------------------------------
   function onScroll() {
     const now = performance.now();
     if (now - lastSpawnTime < SPAWN_THROTTLE_MS) return;
     lastSpawnTime = now;
-    if (pulses.length >= MAX_PULSES || leaves.length === 0) return;
-    const leaf = leaves[(Math.random() * leaves.length) | 0];
-    pulses.push({ path: leaf.path, leaf, startAt: now + Math.random() * SPAWN_STAGGER_MS, pos: null });
+    if (leaves.length === 0) return;
+    for (let c = 0; c < WIRE_COLORS.length; c++) {
+      if (pulses.length >= MAX_PULSES) break;
+      const leaf = leaves[(Math.random() * leaves.length) | 0];
+      const startAt = now + c * SPAWN_STAGGER_MS + Math.random() * SPAWN_STAGGER_MS * 0.6;
+      pulses.push({ path: leaf.path, leaf, colorIdx: c, startAt, pos: null });
+    }
   }
   if (!reduceMotion) {
     window.addEventListener("scroll", onScroll, { passive: true });
