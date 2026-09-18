@@ -544,6 +544,15 @@ footer button:hover { color: var(--accent-cyan); }
   letter-spacing: 0.08em;
 }
 
+/* Subordinate footer group for local/location pages: same pattern as
+   .footer-nav, one step quieter so it reads as secondary to the
+   primary national service architecture above it. */
+.footer-nav--local {
+  font-size: 0.64rem;
+  opacity: 0.75;
+  gap: 1rem;
+}
+
 /* ================================================================ */
 /* Subpage template (hub + child pages)                               */
 /* ================================================================ */
