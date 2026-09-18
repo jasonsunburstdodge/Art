@@ -70,6 +70,9 @@ header {
   width: auto;
   display: block;
 }
+@media (min-width: 1600px) {
+  .logo img { height: 84px; }
+}
 
 nav {
   display: flex;
@@ -225,7 +228,7 @@ a { color: var(--accent-cyan); }
   display: grid;
   grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.6fr);
   gap: clamp(2rem, 6vw, 5rem);
-  max-width: 1180px;
+  max-width: clamp(1180px, 74vw, 1560px);
   margin: 0 auto;
   align-items: start;
 }
@@ -654,7 +657,7 @@ footer button:hover { color: var(--accent-cyan); }
   padding: 3.4rem clamp(1.5rem, 6vw, 5rem);
 }
 .page-section + .page-section { border-top: 1px solid rgba(183, 196, 230, 0.08); }
-.page-section-inner { max-width: 760px; margin: 0 auto; width: 100%; text-align: left; }
+.page-section-inner { max-width: clamp(760px, 62vw, 1200px); margin: 0 auto; width: 100%; text-align: left; }
 .page-section h2 {
   font-size: clamp(1.5rem, 3vw, 2.1rem);
   font-weight: 700;

@@ -15,7 +15,7 @@ body {
 }
 
 .assess-shell {
-  max-width: 760px;
+  max-width: clamp(760px, 55vw, 960px);
   margin: 0 auto;
 }
 
