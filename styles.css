@@ -339,6 +339,14 @@ a { color: var(--accent-cyan); }
   .services-track { animation: none; }
 }
 
+/* Standalone tech-services crawler, e.g. beneath a .page-hero */
+.tech-crawler {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 clamp(1.5rem, 6vw, 5rem) 2.6rem;
+}
+.tech-crawler .services-row { margin-top: 0; }
+
 @media (max-width: 860px) {
   .pillar-grid { grid-template-columns: minmax(0, 1fr); }
   .pillar:nth-of-type(even) .pillar-grid { direction: ltr; }

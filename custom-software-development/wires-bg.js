@@ -2,21 +2,22 @@
   "use strict";
 
   // ---------------------------------------------------------------------
-  // Custom Software Development background: no wires, no clouds — just
-  // sparks. Scrolling fires a burst of tiny, bright, single-color spark
-  // dashes (white, blue, SilverXis blue, orange) from near the top of
-  // the screen, each one traveling the same randomly generated path,
-  // staggered a moment apart. Each spark moves in straight horizontal/
-  // vertical hops, turning at right angles, until it runs off the
-  // bottom or a side of the screen.
+  // Custom Software Development background: the SilverXis shield sits
+  // solid and opaque at the center of the screen. Scrolling makes it
+  // light up, and fires a burst of tiny, bright, single-color spark
+  // dashes (white, blue, SilverXis blue, orange) outward from it in a
+  // random direction — up, down, left, or right — staggered a moment
+  // apart. Each spark moves in straight horizontal/vertical hops,
+  // turning at right angles, until it runs off whichever edge of the
+  // screen it heads toward.
   //
   // The leading dash itself is crisp and flat — no glow — but it drags
   // a short trail behind it in the same color that glows briefly and
   // fades quickly.
   //
   // When a spark exits the screen, it fires an "answering" spark back
-  // from that exit point, traveling upward the same way until it too
-  // runs off screen.
+  // from that exit point, traveling inward and back out the same way
+  // until it too runs off screen.
   //
   // Occasionally, as a spark passes a point along its path, a circuit
   // component lights up there — a blue capacitor, microchip, or
@@ -24,8 +25,8 @@
   // random orange or blue with no label — then fades back to
   // invisible. Most sparks light up nothing at all.
   //
-  // Under prefers-reduced-motion: no sparks at all, one static (empty)
-  // render — nothing here moves without being asked to.
+  // Under prefers-reduced-motion: the shield sits static at rest, no
+  // sparks, no lighting up — nothing here moves without being asked to.
   // ---------------------------------------------------------------------
 
   const canvas = document.getElementById("csd-wires-canvas");
@@ -33,6 +34,11 @@
   const ctx = canvas.getContext("2d");
 
   const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const shieldImg = new Image();
+  shieldImg.src = "../assets/silverxis-shield.png";
+  const SHIELD_REST_ALPHA = 0.92; // "very opaque" at rest
+  const SHIELD_LIGHT_DECAY_MS = 700; // how long the "lit" boost takes to fade after scrolling stops
 
   // White, blue, SilverXis blue, and orange — each spark is a single
   // flat one of these, never a blend.
@@ -54,7 +60,6 @@
   const MAX_ACTIVE = 40;
   const SPAWN_THROTTLE_MS = 140;
   const SPAWN_STAGGER_MS = 90;
-  const ORIGIN_MARGIN = 48; // spawn point clear of the header
 
   const CIRCUIT_BLUE = [120, 180, 255];
   const DIODE_COLORS = [[255, 150, 60], [120, 180, 255]]; // random orange or blue
@@ -69,10 +74,11 @@
 
   let dpr = Math.min(window.devicePixelRatio || 1, 2);
   let W = 0, H = 0;
-  let originY = 0;
+  let shieldX = 0, shieldY = 0;
   let sparks = [];
   let components = [];
   let lastSpawnTime = 0;
+  let lastScrollTime = -Infinity;
 
   function pathWithLengths(points) {
     const segs = [];
@@ -87,14 +93,14 @@
   }
 
   // Random orthogonal walk: mostly continues in the biased direction,
-  // occasionally jogs left/right (or up/down) at a right angle, until it
-  // runs off the canvas — down (or up) or to a side.
-  function generateWalk(x0, y0, biasDown) {
-    const biasIdx = biasDown ? 0 : 1;
+  // occasionally jogs 90 degrees the other way, until it runs off
+  // whichever edge of the canvas it's heading toward.
+  function generateWalk(x0, y0, biasIdx) {
+    const perp = (biasIdx === 0 || biasIdx === 1) ? [2, 3] : [0, 1];
     const pts = [{ x: x0, y: y0 }];
     let x = x0, y = y0;
     for (let i = 0; i < MAX_SEGMENTS; i++) {
-      const d = Math.random() < 0.58 ? biasIdx : 2 + ((Math.random() * 2) | 0);
+      const d = Math.random() < 0.58 ? biasIdx : perp[(Math.random() * 2) | 0];
       const [dx, dy] = DIRS[d];
       const segLen = SEG_LEN_MIN + Math.random() * (SEG_LEN_MAX - SEG_LEN_MIN);
       x += dx * segLen;
@@ -114,9 +120,8 @@
     canvas.style.height = H + "px";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const headerEl = document.querySelector("header");
-    const headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : 0;
-    originY = Math.max(H * 0.09, headerBottom + ORIGIN_MARGIN);
+    shieldX = W * 0.5;
+    shieldY = H * 0.5;
 
     sparks = [];
     components = [];
@@ -164,39 +169,41 @@
     return -1;
   }
 
+  // Sized so a full success term reads clearly at normal viewing size,
+  // not just under zoom.
   function drawComponentShape(type, label) {
-    ctx.lineWidth = 1.3;
+    ctx.lineWidth = 1.6;
     if (type === "capacitor") {
-      ctx.beginPath(); ctx.moveTo(-16, 0); ctx.lineTo(-5, 0); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(-5, -8); ctx.lineTo(-5, 8); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(5, -8); ctx.lineTo(5, 8); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(16, 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-30, 0); ctx.lineTo(-9, 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-9, -15); ctx.lineTo(-9, 15); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(9, -15); ctx.lineTo(9, 15); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(30, 0); ctx.stroke();
     } else if (type === "inductor") {
       ctx.beginPath();
-      ctx.moveTo(-18, 0);
-      ctx.lineTo(-14, 0);
-      for (let i = 0; i < 4; i++) ctx.arc(-14 + 7 + i * 7, 0, 3.5, Math.PI, 0, false);
-      ctx.lineTo(18, 0);
+      ctx.moveTo(-34, 0);
+      ctx.lineTo(-26, 0);
+      for (let i = 0; i < 4; i++) ctx.arc(-26 + 13 + i * 13, 0, 6.5, Math.PI, 0, false);
+      ctx.lineTo(34, 0);
       ctx.stroke();
     } else if (type === "microchip") {
-      ctx.beginPath(); ctx.moveTo(-16, 0); ctx.lineTo(-12, 0); ctx.stroke();
-      ctx.strokeRect(-12, -9, 24, 18);
-      ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(16, 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-42, 0); ctx.lineTo(-34, 0); ctx.stroke();
+      ctx.strokeRect(-34, -19, 68, 38);
+      ctx.beginPath(); ctx.moveTo(34, 0); ctx.lineTo(42, 0); ctx.stroke();
       for (let i = -1; i <= 1; i++) {
-        ctx.beginPath(); ctx.moveTo(i * 6, -9); ctx.lineTo(i * 6, -13); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(i * 6, 9); ctx.lineTo(i * 6, 13); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(i * 13, -19); ctx.lineTo(i * 13, -26); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(i * 13, 19); ctx.lineTo(i * 13, 26); ctx.stroke();
       }
     } else if (type === "diode") {
-      ctx.beginPath(); ctx.moveTo(-16, 0); ctx.lineTo(-6, 0); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(-6, -6); ctx.lineTo(-6, 6); ctx.lineTo(6, 0); ctx.closePath(); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(6, -7); ctx.lineTo(6, 7); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(16, 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-30, 0); ctx.lineTo(-11, 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-11, -11); ctx.lineTo(-11, 11); ctx.lineTo(11, 0); ctx.closePath(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(11, -13); ctx.lineTo(11, 13); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(11, 0); ctx.lineTo(30, 0); ctx.stroke();
     }
     if (label) {
-      ctx.font = "6px monospace";
+      ctx.font = "bold 11px monospace";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(label, 0, type === "microchip" ? 0 : 17);
+      ctx.fillText(label, 0, type === "microchip" ? 0 : 34);
     }
   }
 
@@ -262,7 +269,8 @@
     if (sparks.length >= MAX_ACTIVE) return;
     const x0 = Math.max(4, Math.min(W - 4, fromPoint.x));
     const y0 = Math.max(4, Math.min(H - 4, fromPoint.y));
-    const pathInfo = pathWithLengths(generateWalk(x0, y0, false));
+    const biasIdx = (Math.random() * 4) | 0;
+    const pathInfo = pathWithLengths(generateWalk(x0, y0, biasIdx));
     sparks.push({
       pathInfo,
       startAt: now,
@@ -302,17 +310,22 @@
   }
 
   // ---------------------------------------------------------------------
-  // Scroll-triggered spawning: one random down-path per throttled tick,
-  // one spark per color fired along it at staggered moments.
+  // Scroll-triggered spawning: one random path per throttled tick,
+  // radiating outward from the shield in a random direction, one spark
+  // per color fired along it at staggered moments. Also lights up the
+  // shield itself.
   // ---------------------------------------------------------------------
   function onScroll() {
     const now = performance.now();
+    lastScrollTime = now;
     if (now - lastSpawnTime < SPAWN_THROTTLE_MS) return;
     lastSpawnTime = now;
 
-    const x0 = W * 0.5 + (Math.random() - 0.5) * Math.min(W * 0.14, 120);
-    const y0 = originY;
-    const pathInfo = pathWithLengths(generateWalk(x0, y0, true));
+    const biasIdx = (Math.random() * 4) | 0;
+    const jitter = 18;
+    const x0 = shieldX + (Math.random() - 0.5) * jitter;
+    const y0 = shieldY + (Math.random() - 0.5) * jitter;
+    const pathInfo = pathWithLengths(generateWalk(x0, y0, biasIdx));
     for (let c = 0; c < SPARK_COLORS.length; c++) {
       if (sparks.length >= MAX_ACTIVE) break;
       const startAt = now + c * SPAWN_STAGGER_MS + Math.random() * SPAWN_STAGGER_MS * 0.6;
@@ -325,6 +338,32 @@
   }
 
   // ---------------------------------------------------------------------
+  // The shield: solid and opaque at rest, brightening while (and just
+  // after) the visitor scrolls.
+  // ---------------------------------------------------------------------
+  function drawShield(now) {
+    const boost = reduceMotion ? 0 : Math.max(0, 1 - (now - lastScrollTime) / SHIELD_LIGHT_DECAY_MS);
+    const size = Math.min(W, H) * 0.16;
+
+    if (boost > 0.02) {
+      const glow = ctx.createRadialGradient(shieldX, shieldY, 0, shieldX, shieldY, size * 1.3);
+      glow.addColorStop(0, `rgba(255,255,255,${(0.55 * boost).toFixed(3)})`);
+      glow.addColorStop(0.5, `rgba(120,180,255,${(0.28 * boost).toFixed(3)})`);
+      glow.addColorStop(1, "rgba(120,180,255,0)");
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(shieldX, shieldY, size * 1.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (shieldImg.complete && shieldImg.naturalWidth > 0) {
+      ctx.globalAlpha = Math.min(1, SHIELD_REST_ALPHA + boost * (1 - SHIELD_REST_ALPHA));
+      ctx.drawImage(shieldImg, shieldX - size / 2, shieldY - size / 2, size, size);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // ---------------------------------------------------------------------
   // Frame loop
   // ---------------------------------------------------------------------
   function frame(now) {
@@ -332,6 +371,7 @@
     updateSparks(now);
     drawComponents(now);
     drawSparks(now);
+    drawShield(now);
     if (!reduceMotion) requestAnimationFrame(frame);
   }
 
