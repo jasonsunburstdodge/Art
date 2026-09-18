@@ -770,12 +770,19 @@ footer button:hover { color: var(--accent-cyan); }
 .cluster-grid {
   margin-top: 1.6rem;
   display: grid;
+  /* The track max stays 1fr (not a fixed length) so auto-fit still uses
+     the 230px min to decide how many columns fit at any container width;
+     using a fixed max here instead would make auto-fit base that same
+     decision on the max, silently collapsing rows to fewer columns. The
+     "few cards on a wide row" case is handled below by capping the card
+     itself, not the track. */
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 1.2rem;
 }
 .cluster-card {
   display: flex;
   flex-direction: column;
+  max-width: 420px;
   border: 1px solid rgba(183, 196, 230, 0.2);
   border-radius: 14px;
   padding: 1.4rem 1.5rem;
