@@ -30,6 +30,7 @@
   const MAX_PULSES = 14;
   const SPAWN_THROTTLE_MS = 90;
   const SPAWN_STAGGER_MS = 260; // "different times"
+  const STRAND_CAP = 9; // max parallel strands drawn per cable, however many leaves it feeds
 
   let dpr = Math.min(window.devicePixelRatio || 1, 2);
   let W = 0, H = 0;
@@ -56,8 +57,29 @@
       c2: { x: ax + dx * (0.62 + Math.random() * 0.22) + (Math.random() - 0.5) * 46, y: ay + dy * (0.72 + Math.random() * 0.18) },
       p1: { x: bx, y: by },
       width: Math.max(0.6, 2.4 - depth * 0.34),
-      glowUntil: 0
+      glowUntil: 0,
+      strands: [],
+      leafCount: 1
     };
+  }
+
+  // A "cable" carrying many leaves renders as several tangled parallel
+  // strands (the crowded trunk look); one carrying a single leaf renders
+  // as the one clean wire that actually reaches that box. Strands are
+  // generated once at build time, not re-jittered per frame.
+  function makeStrands(edge, count, depth) {
+    const spread = Math.max(3, 22 - depth * 4);
+    const strands = [];
+    for (let i = 0; i < count; i++) {
+      const j = () => (Math.random() - 0.5) * spread;
+      strands.push({
+        p0: { x: edge.p0.x + j() * 0.3, y: edge.p0.y + j() * 0.15 },
+        c1: { x: edge.c1.x + j(), y: edge.c1.y + j() },
+        c2: { x: edge.c2.x + j(), y: edge.c2.y + j() },
+        p1: { x: edge.p1.x + j() * 0.3, y: edge.p1.y + j() * 0.15 }
+      });
+    }
+    return strands;
   }
 
   // ---------------------------------------------------------------------
@@ -76,7 +98,7 @@
     function branch(x, y, depth, xMin, xMax, parentEdge) {
       if (depth >= MAX_DEPTH) {
         leaves.push({ x, y, path: buildPath(parentEdge), flareStart: 0 });
-        return;
+        return 1;
       }
       let k = 2;
       const r = Math.random();
@@ -86,6 +108,7 @@
       const range = xMax - xMin;
       const slot = range / k;
       const overlap = range * 0.025;
+      let leafTotal = 0;
       for (let i = 0; i < k; i++) {
         const slotMin = xMin + i * slot;
         const slotMax = slotMin + slot;
@@ -96,8 +119,12 @@
         const edge = makeEdge(x, y, cx, cy, depth);
         edge.parent = parentEdge;
         edges.push(edge);
-        branch(cx, cy, depth + 1, slotMin - overlap, slotMax + overlap, edge);
+        const leafCount = branch(cx, cy, depth + 1, slotMin - overlap, slotMax + overlap, edge);
+        edge.leafCount = leafCount;
+        edge.strands = makeStrands(edge, Math.min(leafCount, STRAND_CAP), depth);
+        leafTotal += leafCount;
       }
+      return leafTotal;
     }
 
     function buildPath(edge) {
@@ -183,15 +210,16 @@
 
   function drawEdges(now) {
     for (const e of edges) {
-      ctx.strokeStyle = "rgba(120, 170, 230, 0.22)";
-      ctx.lineWidth = e.width;
-      strokeBezier(e);
-
       const glowAlpha = e.glowUntil > now ? (e.glowUntil - now) / AFTERGLOW_MS : 0;
+
+      ctx.strokeStyle = "rgba(120, 170, 230, 0.2)";
+      ctx.lineWidth = e.width;
+      for (const s of e.strands) strokeBezier(s);
+
       if (glowAlpha > 0.02) {
         ctx.strokeStyle = `rgba(255,255,255,${(glowAlpha * 0.9).toFixed(3)})`;
         ctx.lineWidth = e.width + 1.2;
-        strokeBezier(e);
+        for (const s of e.strands) strokeBezier(s);
       }
     }
   }
