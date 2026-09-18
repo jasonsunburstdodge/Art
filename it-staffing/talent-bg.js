@@ -11,8 +11,14 @@
   // Software Development pillar but built around people instead of
   // wires.
   //
+  // On a slower cadence, a "search" plays out: a cluster of many
+  // candidate nodes lights up together, most are eliminated one by
+  // one, and the single survivor travels to a fixed requester point
+  // at screen center, where the two flare together as a match.
+  //
   // Under prefers-reduced-motion: the network is drawn once, static,
-  // at its faint resting alpha — no pulses, no flares, nothing moves.
+  // at its faint resting alpha — no pulses, no flares, no search
+  // cycle, nothing moves.
   // ---------------------------------------------------------------------
 
   const canvas = document.getElementById("talent-bg-canvas");
@@ -56,6 +62,14 @@
   const FLARE_FADE_OUT_MS = 450;
   const MAX_FLARES = 10;
 
+  const SEARCH_POOL_SIZE = 16;
+  const SEARCH_APPEAR_MS = 450;
+  const SEARCH_ELIMINATE_MS = 1700;
+  const SEARCH_CONVERGE_MS = 850;
+  const SEARCH_ELIMINATE_FADE_MS = 220;
+  const SEARCH_COOLDOWN_MS = 3200;
+  const MATCH_LABELS = ["MATCHED", "PLACED", "THE RIGHT FIT"];
+
   let dpr = Math.min(window.devicePixelRatio || 1, 2);
   let W = 0, H = 0;
   let nodes = [];
@@ -63,6 +77,8 @@
   let pulses = [];
   let flares = [];
   let lastSpawnTime = 0;
+  let searchCycle = null;
+  let lastSearchEnd = -Infinity;
 
   function pathWithLengths(points) {
     const segs = [];
@@ -129,6 +145,7 @@
     buildNetwork();
     pulses = [];
     flares = [];
+    searchCycle = null;
   }
 
   // ---------------------------------------------------------------------
@@ -149,6 +166,14 @@
     flares.push({ x: node.x, y: node.y, color, label, litAt });
   }
 
+  // A search cycle's arrival: the same fade-in/hold/fade-out envelope
+  // as a skill-tag flare, plus an expanding ring to mark the moment
+  // survivor and requester meet.
+  function pushMatchFlare(x, y, color, litAt) {
+    const label = MATCH_LABELS[(Math.random() * MATCH_LABELS.length) | 0];
+    flares.push({ x, y, color, label, litAt, ring: true });
+  }
+
   function drawFlares(now) {
     ctx.font = "bold 11px monospace";
     ctx.textAlign = "center";
@@ -164,6 +189,14 @@
       const pillH = 20;
       const py = f.y - 20;
       ctx.globalAlpha = alpha;
+      if (f.ring) {
+        const ringR = 10 + (1 - alpha) * 18;
+        ctx.strokeStyle = `rgba(${r},${g},${b},${(alpha * 0.8).toFixed(3)})`;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, ringR, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       ctx.fillStyle = "rgba(6,10,22,0.82)";
       ctx.strokeStyle = `rgb(${r},${g},${b})`;
       ctx.lineWidth = 1.3;
@@ -303,10 +336,119 @@
   }
 
   // ---------------------------------------------------------------------
+  // Search cycle: many candidates, elimination down to one, and a
+  // single match with the requester at screen center.
+  // ---------------------------------------------------------------------
+  function startSearchCycle(now) {
+    if (searchCycle) return;
+    if (now - lastSearchEnd < SEARCH_COOLDOWN_MS) return;
+    if (nodes.length < SEARCH_POOL_SIZE + 4) return;
+
+    const seed = nodes[(Math.random() * nodes.length) | 0];
+    const byDist = nodes
+      .map((n, i) => ({ i, d: Math.hypot(n.x - seed.x, n.y - seed.y) }))
+      .sort((a, b) => a.d - b.d)
+      .slice(0, SEARCH_POOL_SIZE)
+      .map((o) => o.i);
+
+    const survivorPos = (Math.random() * byDist.length) | 0;
+    const survivorNodeIdx = byDist[survivorPos];
+    const others = byDist.filter((_, k) => k !== survivorPos);
+    for (let i = others.length - 1; i > 0; i--) {
+      const j = (Math.random() * (i + 1)) | 0;
+      const tmp = others[i]; others[i] = others[j]; others[j] = tmp;
+    }
+    const eliminatedAt = new Map();
+    others.forEach((idx, k) => {
+      eliminatedAt.set(idx, SEARCH_APPEAR_MS + ((k + 1) / others.length) * SEARCH_ELIMINATE_MS);
+    });
+
+    searchCycle = {
+      startAt: now,
+      poolIdx: byDist,
+      survivorNodeIdx,
+      survivorStart: { x: nodes[survivorNodeIdx].x, y: nodes[survivorNodeIdx].y },
+      eliminatedAt,
+      colorIdx: (Math.random() * PULSE_COLORS.length) | 0,
+      requester: { x: W * 0.5, y: H * 0.5 }
+    };
+  }
+
+  function updateAndDrawSearchCycle(now) {
+    if (!searchCycle) return;
+    const age = now - searchCycle.startAt;
+    const T1 = SEARCH_APPEAR_MS;
+    const T2 = T1 + SEARCH_ELIMINATE_MS;
+    const T3 = T2 + SEARCH_CONVERGE_MS;
+    const [r, g, b] = PULSE_COLORS[searchCycle.colorIdx];
+
+    if (age >= T3) {
+      pushMatchFlare(searchCycle.requester.x, searchCycle.requester.y, PULSE_COLORS[searchCycle.colorIdx], now);
+      lastSearchEnd = now;
+      searchCycle = null;
+      return;
+    }
+
+    if (age < T2) {
+      ctx.lineWidth = 1.4;
+      for (const idx of searchCycle.poolIdx) {
+        const n = nodes[idx];
+        let alpha;
+        if (idx === searchCycle.survivorNodeIdx) {
+          alpha = Math.min(1, age / T1);
+        } else {
+          const elimAt = searchCycle.eliminatedAt.get(idx);
+          if (age < T1) alpha = age / T1;
+          else if (age < elimAt) alpha = 1;
+          else if (age < elimAt + SEARCH_ELIMINATE_FADE_MS) alpha = 1 - (age - elimAt) / SEARCH_ELIMINATE_FADE_MS;
+          else alpha = 0;
+        }
+        if (alpha <= 0) continue;
+        ctx.strokeStyle = `rgba(${r},${g},${b},${alpha.toFixed(3)})`;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, 6, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = `rgba(${r},${g},${b},${alpha.toFixed(3)})`;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, 2.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      return;
+    }
+
+    // Converge: the survivor travels from where it stood to the
+    // requester at screen center.
+    const t = (age - T2) / SEARCH_CONVERGE_MS;
+    const sx = searchCycle.survivorStart.x + (searchCycle.requester.x - searchCycle.survivorStart.x) * t;
+    const sy = searchCycle.survivorStart.y + (searchCycle.requester.y - searchCycle.survivorStart.y) * t;
+
+    ctx.strokeStyle = `rgba(${r},${g},${b},0.5)`;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(searchCycle.survivorStart.x, searchCycle.survivorStart.y);
+    ctx.lineTo(sx, sy);
+    ctx.stroke();
+
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.beginPath();
+    ctx.arc(sx, sy, PULSE_DOT_RADIUS + 0.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // The requester brightens in anticipation as the survivor approaches.
+    const reqAlpha = 0.15 + 0.5 * t;
+    ctx.strokeStyle = `rgba(${r},${g},${b},${reqAlpha.toFixed(3)})`;
+    ctx.beginPath();
+    ctx.arc(searchCycle.requester.x, searchCycle.requester.y, 9, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // ---------------------------------------------------------------------
   // Scroll-triggered spawning
   // ---------------------------------------------------------------------
   function onScroll() {
     const now = performance.now();
+    startSearchCycle(now);
+
     if (now - lastSpawnTime < SPAWN_THROTTLE_MS || !nodes.length) return;
     lastSpawnTime = now;
 
@@ -329,6 +471,7 @@
     ctx.clearRect(0, 0, W, H);
     drawNetwork();
     updatePulses(now);
+    updateAndDrawSearchCycle(now);
     drawFlares(now);
     drawPulses(now);
     if (!reduceMotion) requestAnimationFrame(frame);
