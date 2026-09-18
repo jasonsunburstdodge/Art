@@ -32,6 +32,12 @@
 
   const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  // Resolve the shield image relative to this script's own location
+  // (not the including page's URL), so it loads correctly regardless
+  // of which directory depth includes kinetic-bg.js.
+  const scriptEl = document.currentScript;
+  const scriptBase = scriptEl ? scriptEl.src.slice(0, scriptEl.src.lastIndexOf("/") + 1) : "";
+
   function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
   function lerp(a, b, t) { return a + (b - a) * t; }
 
@@ -107,7 +113,7 @@
   const logoWrap = document.createElement("div");
   logoWrap.className = "kb-logo-wrap";
   const logoImg = document.createElement("img");
-  logoImg.src = "assets/silverxis-shield.png";
+  logoImg.src = scriptBase + "assets/silverxis-shield.png";
   logoImg.alt = "";
   logoWrap.appendChild(logoImg);
   orbitEl.appendChild(logoWrap);
