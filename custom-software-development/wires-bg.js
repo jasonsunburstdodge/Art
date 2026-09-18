@@ -2,25 +2,22 @@
   "use strict";
 
   // ---------------------------------------------------------------------
-  // Custom Software Development background: an upside-down tree made of
-  // thin twisted wire, hanging from a glowing cloud at the top of the
-  // screen — a long twisted trunk that fans into a crown of major root
-  // branches, each of which splits again and again into thinner, wavier
-  // twigs, ending in loose wire tips with a small glowing box.
+  // Custom Software Development background: a glowing cloud at the top
+  // of the screen (positioned clear of the header, not behind it) with
+  // an invisible upside-down-tree of branch paths hanging beneath it.
+  // The branches themselves are never drawn — only the many tiny white
+  // dots of light that travel down them are visible, each one riding
+  // its own branch path, firing at staggered times.
   //
-  // Every strand is thin; a branch only reads as "thick" because several
-  // thin blue/white/silverxis-blue wires are twisted together along it —
-  // more of them near the trunk, fewer as it forks apart, down to one
-  // single wavy wire per twig.
+  // The tree geometry (trunk, crown of root branches, forking twigs)
+  // still exists under the hood; it just determines where the dots are
+  // allowed to travel, rather than being drawn as wires.
   //
-  // Idle, the cloud breathes gently and the wires sit dim. Scrolling
-  // fires one tiny white spark per wire color, each starting a moment
-  // apart, down a random root-to-box path. Each spark travels its own
-  // single wire — not the whole bundle it passes through — leaving a
-  // short glow on that one wire that fades quickly, and the box at the
-  // end of its path flares briefly when the spark arrives.
+  // Idle, the cloud breathes gently and no dots move. Scrolling fires
+  // one dot per color, each starting a moment apart, traveling down a
+  // random root-to-tip path and flashing briefly on arrival.
   //
-  // Under prefers-reduced-motion: no breathing, no pulses, one static
+  // Under prefers-reduced-motion: no breathing, no dots, one static
   // render — nothing here moves without being asked to.
   // ---------------------------------------------------------------------
 
@@ -36,7 +33,6 @@
   const DEPTH_WEIGHTS = [1.6, 1.3, 1.0, 0.9, 0.8, 0.7]; // trunk runs long; branches get shorter
 
   const EDGE_TRAVEL_MS = 210; // time for a pulse to cross one branch
-  const AFTERGLOW_MS = 240; // how long a spark's glow lingers on its wire — fades quickly
   const FLARE_MS = 650; // box flare duration on arrival
   const MAX_PULSES = 30;
   const SPAWN_THROTTLE_MS = 140; // each tick spawns one pulse per color, staggered
@@ -52,9 +48,9 @@
 
   let dpr = Math.min(window.devicePixelRatio || 1, 2);
   let W = 0, H = 0;
+  let cloudY = 0;
   let edges = [];
   let leaves = [];
-  let wisps = [];
   let pulses = [];
   let lastSpawnTime = 0;
 
@@ -109,7 +105,7 @@
         const wave = Math.sin(t * freq * Math.PI * 2 + phase) * amp * taper;
         points.push({ x: base.x + nx * wave, y: base.y + ny * wave });
       }
-      strands.push({ points, color: WIRE_COLORS[i % WIRE_COLORS.length], width: Math.max(0.55, 1.2 - depth * 0.06), glowUntil: 0 });
+      strands.push({ points, color: WIRE_COLORS[i % WIRE_COLORS.length] });
     }
     return strands;
   }
@@ -125,8 +121,8 @@
     leaves = [];
 
     const marginX = W * 0.05;
-    const rootX = W * 0.5, rootY = H * 0.085;
-    const totalY = H * 0.8;
+    const rootX = W * 0.5, rootY = cloudY;
+    const totalY = H - rootY - H * 0.08;
     const weightSum = DEPTH_WEIGHTS.reduce((a, b) => a + b, 0);
     const yStepAt = DEPTH_WEIGHTS.map((w) => (totalY * w) / weightSum);
 
@@ -175,22 +171,6 @@
     }
 
     branch(rootX, rootY, 0, marginX, W - marginX, null);
-
-    // A handful of static decorative tendrils curling around the cloud,
-    // purely atmospheric — not part of the branch/pulse system.
-    wisps = [];
-    for (let i = 0; i < 9; i++) {
-      const ang = (Math.PI * 2 * i) / 9 + Math.random() * 0.4;
-      const len = Math.min(W, H) * (0.18 + Math.random() * 0.16);
-      const sx = rootX + Math.cos(ang) * len * 0.15;
-      const sy = rootY + Math.sin(ang) * len * 0.1 - H * 0.02;
-      wisps.push({
-        p0: { x: rootX, y: rootY - H * 0.015 },
-        c1: { x: sx, y: sy - len * 0.3 },
-        c2: { x: sx + Math.cos(ang) * len * 0.6, y: sy + Math.sin(ang) * len * 0.4 },
-        p1: { x: rootX + Math.cos(ang) * len, y: rootY + Math.sin(ang) * len * 0.55 }
-      });
-    }
   }
 
   function resize() {
@@ -201,34 +181,20 @@
     canvas.style.width = W + "px";
     canvas.style.height = H + "px";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const headerEl = document.querySelector("header");
+    const headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : 0;
+    cloudY = Math.max(H * 0.09, headerBottom + 48);
+
     buildTree();
   }
 
   // ---------------------------------------------------------------------
-  // Drawing
+  // Drawing — the branch geometry itself is never stroked; only the
+  // cloud and the traveling dots are visible.
   // ---------------------------------------------------------------------
-  function strokePolyline(points) {
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
-    ctx.stroke();
-  }
-
-  function strokeBezier(e) {
-    ctx.beginPath();
-    ctx.moveTo(e.p0.x, e.p0.y);
-    ctx.bezierCurveTo(e.c1.x, e.c1.y, e.c2.x, e.c2.y, e.p1.x, e.p1.y);
-    ctx.stroke();
-  }
-
-  function drawWisps() {
-    ctx.strokeStyle = "rgba(150, 195, 255, 0.16)";
-    ctx.lineWidth = 0.7;
-    for (const w of wisps) strokeBezier(w);
-  }
-
   function drawCloud(now) {
-    const cx = W * 0.5, cy = H * 0.07;
+    const cx = W * 0.5, cy = cloudY;
     const breathe = reduceMotion ? 0.5 : Math.sin(now * 0.0009) * 0.5 + 0.5;
     const R = Math.min(W * 0.16, 140) * (0.94 + breathe * 0.08);
 
@@ -255,63 +221,29 @@
     }
   }
 
-  function drawEdges(now) {
-    for (const e of edges) {
-      for (const s of e.strands) {
-        const [r, g, b] = s.color;
-        ctx.strokeStyle = `rgba(${r},${g},${b},0.32)`;
-        ctx.lineWidth = s.width;
-        strokePolyline(s.points);
-
-        const glowAlpha = s.glowUntil > now ? (s.glowUntil - now) / AFTERGLOW_MS : 0;
-        if (glowAlpha > 0.02) {
-          const gr = Math.min(255, r + 90), gg = Math.min(255, g + 90), gb = Math.min(255, b + 90);
-          ctx.strokeStyle = `rgba(${gr},${gg},${gb},${(glowAlpha * 0.95).toFixed(3)})`;
-          ctx.lineWidth = s.width + 1;
-          strokePolyline(s.points);
-        }
-      }
-    }
-  }
-
-  function roundRect(x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
-  }
-
+  // A tip only appears as a brief flash the instant a dot arrives —
+  // otherwise, like the branches, it's invisible.
   function drawLeaves(now) {
     for (const leaf of leaves) {
       const age = leaf.flareStart ? now - leaf.flareStart : Infinity;
-      const flaring = age < FLARE_MS;
-      const t = flaring ? age / FLARE_MS : 1;
-      const boost = flaring ? 1 - t : 0;
-
-      ctx.strokeStyle = `rgba(150, 205, 255, ${(0.3 + boost * 0.55).toFixed(3)})`;
-      ctx.lineWidth = 0.9;
-      roundRect(leaf.x - 5, leaf.y - 5, 10, 10, 2);
-      ctx.stroke();
+      if (age >= FLARE_MS) continue;
+      const t = age / FLARE_MS;
+      const boost = 1 - t;
 
       const dot = ctx.createRadialGradient(leaf.x, leaf.y, 0, leaf.x, leaf.y, 4 + boost * 6);
-      dot.addColorStop(0, `rgba(255,255,255,${(0.5 + boost * 0.5).toFixed(3)})`);
+      dot.addColorStop(0, `rgba(255,255,255,${(0.85 * boost).toFixed(3)})`);
       dot.addColorStop(1, "rgba(150,205,255,0)");
       ctx.fillStyle = dot;
       ctx.beginPath();
       ctx.arc(leaf.x, leaf.y, 4 + boost * 6, 0, Math.PI * 2);
       ctx.fill();
 
-      if (flaring) {
-        const ringR = 4 + t * 24;
-        ctx.strokeStyle = `rgba(255,255,255,${((1 - t) * 0.85).toFixed(3)})`;
-        ctx.lineWidth = 1.4;
-        ctx.beginPath();
-        ctx.arc(leaf.x, leaf.y, ringR, 0, Math.PI * 2);
-        ctx.stroke();
-      }
+      const ringR = 4 + t * 24;
+      ctx.strokeStyle = `rgba(255,255,255,${(boost * 0.85).toFixed(3)})`;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(leaf.x, leaf.y, ringR, 0, Math.PI * 2);
+      ctx.stroke();
     }
   }
 
@@ -338,9 +270,9 @@
     }
   }
 
-  // Each pulse rides exactly one specific wire (one strand per edge along
-  // its path, chosen by color), so only that wire lights up — not the
-  // whole bundle it travels through.
+  // Each dot rides one specific invisible strand per edge along its
+  // path (chosen by color), so its motion still follows the tree's real
+  // branch geometry even though that geometry is never drawn.
   function updatePulses(now) {
     for (let i = pulses.length - 1; i >= 0; i--) {
       const p = pulses[i];
@@ -355,7 +287,6 @@
       const edge = p.path[edgeIdx];
       const strand = edge.strands[p.colorIdx % edge.strands.length];
       const tInEdge = (elapsed % EDGE_TRAVEL_MS) / EDGE_TRAVEL_MS;
-      strand.glowUntil = now + AFTERGLOW_MS;
       p.pos = pointOnPolyline(strand.points, tInEdge);
     }
   }
@@ -387,8 +318,6 @@
     ctx.clearRect(0, 0, W, H);
     updatePulses(now);
     drawCloud(now);
-    drawWisps();
-    drawEdges(now);
     drawPulses(now);
     drawLeaves(now);
     if (!reduceMotion) requestAnimationFrame(frame);
