@@ -36,8 +36,10 @@
 
   const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  const scriptEl = document.currentScript;
+  const scriptBase = scriptEl ? scriptEl.src.slice(0, scriptEl.src.lastIndexOf("/") + 1) : "";
   const shieldImg = new Image();
-  shieldImg.src = "../assets/silverxis-shield.png";
+  shieldImg.src = scriptBase + "../assets/silverxis-shield.png";
   const SHIELD_MAX_ALPHA = 0.95; // fully faded in, while actively scrolling
   const SHIELD_FADE_IN_MS = 260;
   const SHIELD_FADE_OUT_MS = 180; // "quickly fades out" once scrolling stops
