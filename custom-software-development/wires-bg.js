@@ -2,23 +2,24 @@
   "use strict";
 
   // ---------------------------------------------------------------------
-  // Custom Software Development background: a glowing cloud at the top
-  // of the screen (positioned clear of the header, not behind it) with
-  // an invisible upside-down-tree of branch paths hanging beneath it.
-  // The branches themselves are never drawn — only the many tiny white
-  // dots of light that travel down them are visible, each one riding
-  // its own branch path, firing at staggered times.
+  // Custom Software Development background: a solid, opaque cloud sits
+  // just below the header (never behind it), outlined in SilverXis blue.
+  // No wires are ever drawn. Scrolling makes the cloud flash internally
+  // like lightning — white, blue, and SilverXis blue in turn, with the
+  // SilverXis shield briefly visible inside the glow on each flash — and
+  // fires tiny thin spark-dashes (no glow, one per color) down from it.
+  // Each spark travels in straight horizontal/vertical hops, turning at
+  // right angles, until it runs off the bottom or a side of the screen.
   //
-  // The tree geometry (trunk, crown of root branches, forking twigs)
-  // still exists under the hood; it just determines where the dots are
-  // allowed to travel, rather than being drawn as wires.
+  // When a spark exits, it fires back an "answering" spark from that
+  // exit point, traveling upward the same way toward one of several
+  // hidden distant clouds scattered around the scene. Those clouds are
+  // otherwise invisible — outline and all — until an answering spark
+  // reaches one, at which point it flashes and fades.
   //
-  // Idle, the cloud breathes gently and no dots move. Scrolling fires
-  // one dot per color, each starting a moment apart, traveling down a
-  // random root-to-tip path and flashing briefly on arrival.
-  //
-  // Under prefers-reduced-motion: no breathing, no dots, one static
-  // render — nothing here moves without being asked to.
+  // Under prefers-reduced-motion: no flashing, no sparks, one static
+  // render of the opaque main cloud only — nothing here moves without
+  // being asked to.
   // ---------------------------------------------------------------------
 
   const canvas = document.getElementById("csd-wires-canvas");
@@ -27,150 +28,67 @@
 
   const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const TRUNK_LEVELS = 2; // unsplit twisted trunk before the crown of root branches
-  const BRANCH_LEVELS = 4; // further binary-ish forking below the crown
-  const MAX_DEPTH = TRUNK_LEVELS + BRANCH_LEVELS;
-  const DEPTH_WEIGHTS = [1.6, 1.3, 1.0, 0.9, 0.8, 0.7]; // trunk runs long; branches get shorter
+  const shieldImg = new Image();
+  shieldImg.src = "../assets/silverxis-shield.png";
 
-  const EDGE_TRAVEL_MS = 210; // time for a pulse to cross one branch
-  const FLARE_MS = 650; // box flare duration on arrival
-  const MAX_PULSES = 30;
-  const SPAWN_THROTTLE_MS = 140; // each tick spawns one pulse per color, staggered
-  const SPAWN_STAGGER_MS = 90; // gap between each color's start within one spawn burst
-  const STRAND_CAP = 45; // max thin wires twisted together in any one cable (5x the original 9)
-
-  // Thin blue, white, and SilverXis-blue — cycled across a bundle's strands.
+  // Thin blue, white, and SilverXis-blue — the three spark/flash colors.
   const WIRE_COLORS = [
     [140, 190, 255], // thin blue
     [235, 244, 255], // white
     [47, 134, 245]   // SilverXis blue
   ];
+  const SILVERXIS_BLUE = "rgba(47,134,245,0.85)";
+
+  const DIRS = [[0, 1], [0, -1], [1, 0], [-1, 0]]; // down, up, right, left
+  const SEG_LEN_MIN = 40, SEG_LEN_MAX = 130;
+  const MAX_SEGMENTS = 9;
+  const SPARK_SPEED = 0.62; // px/ms
+  const DASH_LEN = 12;
+  const SPARK_WIDTH = 1.8;
+  const MAX_ACTIVE = 40;
+  const SPAWN_THROTTLE_MS = 140;
+  const SPAWN_STAGGER_MS = 90;
+  const CLOUD_FLASH_MS = 90;
+  const DIST_CLOUD_COUNT = 5;
+  const DIST_CLOUD_FLARE_MS = 900;
 
   let dpr = Math.min(window.devicePixelRatio || 1, 2);
   let W = 0, H = 0;
   let cloudY = 0;
-  let edges = [];
-  let leaves = [];
-  let pulses = [];
+  let sparks = [];
+  let cloudFlashes = [];
+  let distantClouds = [];
   let lastSpawnTime = 0;
 
-  function bezierPoint(edge, t) {
-    const mt = 1 - t;
-    const a = mt * mt * mt, b = 3 * mt * mt * t, c = 3 * mt * t * t, d = t * t * t;
-    return {
-      x: a * edge.p0.x + b * edge.c1.x + c * edge.c2.x + d * edge.p1.x,
-      y: a * edge.p0.y + b * edge.c1.y + c * edge.c2.y + d * edge.p1.y
-    };
-  }
-
-  function bezierTangent(edge, t) {
-    const mt = 1 - t;
-    const dx = 3 * mt * mt * (edge.c1.x - edge.p0.x) + 6 * mt * t * (edge.c2.x - edge.c1.x) + 3 * t * t * (edge.p1.x - edge.c2.x);
-    const dy = 3 * mt * mt * (edge.c1.y - edge.p0.y) + 6 * mt * t * (edge.c2.y - edge.c1.y) + 3 * t * t * (edge.p1.y - edge.c2.y);
-    const len = Math.hypot(dx, dy) || 1;
-    return { x: dx / len, y: dy / len };
-  }
-
-  function makeEdge(ax, ay, bx, by, depth) {
-    const dx = bx - ax, dy = by - ay;
-    return {
-      p0: { x: ax, y: ay },
-      c1: { x: ax + dx * (0.22 + Math.random() * 0.22) + (Math.random() - 0.5) * 30, y: ay + dy * (0.12 + Math.random() * 0.18) },
-      c2: { x: ax + dx * (0.62 + Math.random() * 0.22) + (Math.random() - 0.5) * 30, y: ay + dy * (0.72 + Math.random() * 0.18) },
-      p1: { x: bx, y: by },
-      strands: [],
-      leafCount: 1
-    };
-  }
-
-  // A cable feeding many leaves is several thin wires twisted around the
-  // same path (the rope-like trunk/branch look); one feeding a single
-  // leaf is the one loose, gently wavy wire that actually reaches it.
-  // Sampled to a polyline once at build time, not re-jittered per frame.
-  const SAMPLE_STEPS = 14;
-  function makeStrands(edge, count, depth) {
-    const twisted = count > 1;
-    const freq = twisted ? 2.2 + Math.random() * 0.6 : 0.9 + Math.random() * 0.5;
-    const amp = twisted ? 3.2 + Math.random() * 1.4 : 4.5 + Math.random() * 3;
-    const strands = [];
-    for (let i = 0; i < count; i++) {
-      const phase = twisted ? (Math.PI * 2 * i) / count : Math.random() * Math.PI * 2;
-      const points = [];
-      for (let s = 0; s <= SAMPLE_STEPS; s++) {
-        const t = s / SAMPLE_STEPS;
-        const base = bezierPoint(edge, t);
-        const tan = bezierTangent(edge, t);
-        const nx = -tan.y, ny = tan.x;
-        const taper = Math.sin(Math.PI * t); // 0 at both ends so wires meet cleanly at nodes/boxes
-        const wave = Math.sin(t * freq * Math.PI * 2 + phase) * amp * taper;
-        points.push({ x: base.x + nx * wave, y: base.y + ny * wave });
-      }
-      strands.push({ points, color: WIRE_COLORS[i % WIRE_COLORS.length] });
+  function pathWithLengths(points) {
+    const segs = [];
+    let total = 0;
+    for (let i = 0; i < points.length - 1; i++) {
+      const a = points[i], b = points[i + 1];
+      const len = Math.hypot(b.x - a.x, b.y - a.y) || 0.001;
+      segs.push({ a, b, len, dx: (b.x - a.x) / len, dy: (b.y - a.y) / len, start: total });
+      total += len;
     }
-    return strands;
+    return { segs, total };
   }
 
-  // ---------------------------------------------------------------------
-  // Tree build: a long unsplit trunk (TRUNK_LEVELS), then a crown of
-  // several major root branches, each forking roughly in two the rest
-  // of the way down. Slot-partitioning keeps siblings spread across the
-  // width while still allowing a little overlap to read as tangled.
-  // ---------------------------------------------------------------------
-  function buildTree() {
-    edges = [];
-    leaves = [];
-
-    const marginX = W * 0.05;
-    const rootX = W * 0.5, rootY = cloudY;
-    const totalY = H - rootY - H * 0.08;
-    const weightSum = DEPTH_WEIGHTS.reduce((a, b) => a + b, 0);
-    const yStepAt = DEPTH_WEIGHTS.map((w) => (totalY * w) / weightSum);
-
-    function branch(x, y, depth, xMin, xMax, parentEdge) {
-      if (depth >= MAX_DEPTH) {
-        leaves.push({ x, y, path: buildPath(parentEdge), flareStart: 0 });
-        return 1;
-      }
-      let k;
-      if (depth < TRUNK_LEVELS) {
-        k = 1; // straight twisted trunk, no split yet
-      } else if (depth === TRUNK_LEVELS) {
-        k = 4 + ((Math.random() * 2) | 0); // crown: 4-5 major root branches fan out here
-      } else {
-        k = Math.random() < 0.16 ? 1 : 2; // mostly binary, occasional early stop for irregularity
-      }
-
-      const range = xMax - xMin;
-      const slot = range / k;
-      const overlap = range * 0.03;
-      const yStep = yStepAt[depth];
-      let leafTotal = 0;
-      for (let i = 0; i < k; i++) {
-        const slotMin = xMin + i * slot;
-        const slotMax = slotMin + slot;
-        const pad = slot * 0.16;
-        const cx = k === 1 ? (slotMin + slotMax) / 2 + (Math.random() - 0.5) * slot * 0.25
-          : slotMin + pad + Math.random() * Math.max(1, slot - pad * 2);
-        const cy = y + yStep + (Math.random() - 0.5) * yStep * 0.25;
-        const edge = makeEdge(x, y, cx, cy, depth);
-        edge.parent = parentEdge;
-        edges.push(edge);
-        const leafCount = branch(cx, cy, depth + 1, slotMin - overlap, slotMax + overlap, edge);
-        edge.leafCount = leafCount;
-        edge.strands = makeStrands(edge, Math.min(leafCount, STRAND_CAP), depth);
-        leafTotal += leafCount;
-      }
-      return leafTotal;
+  // Random orthogonal walk: mostly continues in the biased direction,
+  // occasionally jogs left/right (or up/down) at a right angle, until it
+  // runs off the canvas — down or to a side.
+  function generateWalk(x0, y0, biasDown) {
+    const biasIdx = biasDown ? 0 : 1;
+    const pts = [{ x: x0, y: y0 }];
+    let x = x0, y = y0;
+    for (let i = 0; i < MAX_SEGMENTS; i++) {
+      const d = Math.random() < 0.58 ? biasIdx : 2 + ((Math.random() * 2) | 0);
+      const [dx, dy] = DIRS[d];
+      const segLen = SEG_LEN_MIN + Math.random() * (SEG_LEN_MAX - SEG_LEN_MIN);
+      x += dx * segLen;
+      y += dy * segLen;
+      pts.push({ x, y });
+      if (x < -30 || x > W + 30 || y < -30 || y > H + 30) break;
     }
-
-    function buildPath(edge) {
-      const path = [];
-      let e = edge;
-      while (e) { path.unshift(e); e = e.parent; }
-      return path;
-    }
-
-    branch(rootX, rootY, 0, marginX, W - marginX, null);
+    return pts;
   }
 
   function resize() {
@@ -186,126 +104,168 @@
     const headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : 0;
     cloudY = Math.max(H * 0.09, headerBottom + 48);
 
-    buildTree();
-  }
-
-  // ---------------------------------------------------------------------
-  // Drawing — the branch geometry itself is never stroked; only the
-  // cloud and the traveling dots are visible.
-  // ---------------------------------------------------------------------
-  function drawCloud(now) {
-    const cx = W * 0.5, cy = cloudY;
-    const breathe = reduceMotion ? 0.5 : Math.sin(now * 0.0009) * 0.5 + 0.5;
-    const R = Math.min(W * 0.16, 140) * (0.94 + breathe * 0.08);
-
-    const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.9);
-    halo.addColorStop(0, "rgba(255,255,255,0.85)");
-    halo.addColorStop(0.25, "rgba(190,225,255,0.5)");
-    halo.addColorStop(0.6, "rgba(110,180,255,0.16)");
-    halo.addColorStop(1, "rgba(110,180,255,0)");
-    ctx.fillStyle = halo;
-    ctx.beginPath();
-    ctx.arc(cx, cy, R * 1.9, 0, Math.PI * 2);
-    ctx.fill();
-
-    const lumps = [[-0.55, 0.05, 0.55], [-0.2, -0.15, 0.62], [0.2, -0.12, 0.6], [0.55, 0.05, 0.5], [0, 0.1, 0.7]];
-    for (const [ox, oy, scale] of lumps) {
-      const lx = cx + ox * R, ly = cy + oy * R * 0.6, lr = R * 0.55 * scale;
-      const lg = ctx.createRadialGradient(lx, ly, 0, lx, ly, lr);
-      lg.addColorStop(0, "rgba(230,242,255,0.55)");
-      lg.addColorStop(1, "rgba(230,242,255,0)");
-      ctx.fillStyle = lg;
-      ctx.beginPath();
-      ctx.arc(lx, ly, lr, 0, Math.PI * 2);
-      ctx.fill();
+    sparks = [];
+    distantClouds = [];
+    for (let i = 0; i < DIST_CLOUD_COUNT; i++) {
+      distantClouds.push({
+        x: W * (0.1 + Math.random() * 0.8),
+        y: H * (0.4 + Math.random() * 0.48),
+        r: 34 + Math.random() * 26,
+        litAt: -Infinity
+      });
     }
   }
 
-  // A tip only appears as a brief flash the instant a dot arrives —
-  // otherwise, like the branches, it's invisible.
-  function drawLeaves(now) {
-    for (const leaf of leaves) {
-      const age = leaf.flareStart ? now - leaf.flareStart : Infinity;
-      if (age >= FLARE_MS) continue;
-      const t = age / FLARE_MS;
-      const boost = 1 - t;
+  // ---------------------------------------------------------------------
+  // Drawing
+  // ---------------------------------------------------------------------
+  function activeCloudFlash(now) {
+    for (let i = cloudFlashes.length - 1; i >= 0; i--) {
+      const f = cloudFlashes[i];
+      if (now >= f.startAt && now < f.startAt + CLOUD_FLASH_MS) return f;
+    }
+    return null;
+  }
 
-      const dot = ctx.createRadialGradient(leaf.x, leaf.y, 0, leaf.x, leaf.y, 4 + boost * 6);
-      dot.addColorStop(0, `rgba(255,255,255,${(0.85 * boost).toFixed(3)})`);
-      dot.addColorStop(1, "rgba(150,205,255,0)");
-      ctx.fillStyle = dot;
-      ctx.beginPath();
-      ctx.arc(leaf.x, leaf.y, 4 + boost * 6, 0, Math.PI * 2);
-      ctx.fill();
+  function drawCloudGlow(cx, cy, r, tint, coreAlpha) {
+    const [tr, tg, tb] = tint;
+    const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 1.9);
+    halo.addColorStop(0, `rgba(${tr},${tg},${tb},${coreAlpha})`);
+    halo.addColorStop(0.3, `rgba(${tr},${tg},${tb},${(coreAlpha * 0.8).toFixed(3)})`);
+    halo.addColorStop(0.65, `rgba(${Math.round(tr * 0.5 + 50)},${Math.round(tg * 0.5 + 70)},${Math.round(tb * 0.6 + 90)},${(coreAlpha * 0.4).toFixed(3)})`);
+    halo.addColorStop(1, "rgba(90,150,230,0)");
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 1.9, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
-      const ringR = 4 + t * 24;
-      ctx.strokeStyle = `rgba(255,255,255,${(boost * 0.85).toFixed(3)})`;
-      ctx.lineWidth = 1.4;
+  function drawCloudOutline(cx, cy, r, alpha) {
+    ctx.strokeStyle = `rgba(47,134,245,${alpha.toFixed(3)})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // The one main cloud: solid/opaque at rest, outlined in SilverXis
+  // blue, and briefly showing the shield inside its glow on each flash.
+  function drawCloud(now) {
+    const cx = W * 0.5, cy = cloudY;
+    const R = Math.min(W * 0.16, 140);
+    const flash = reduceMotion ? null : activeCloudFlash(now);
+    const tint = flash ? WIRE_COLORS[flash.colorIdx] : [235, 244, 255];
+    const coreAlpha = flash ? 1 : 0.88;
+
+    drawCloudGlow(cx, cy, R, tint, coreAlpha);
+    drawCloudOutline(cx, cy, R, 0.85);
+
+    if (flash && shieldImg.complete && shieldImg.naturalWidth > 0) {
+      const t = (now - flash.startAt) / CLOUD_FLASH_MS;
+      const alpha = Math.sin(Math.PI * Math.min(1, t)) * 0.9;
+      const size = R * 1.05;
+      ctx.globalAlpha = Math.max(0, alpha);
+      ctx.drawImage(shieldImg, cx - size / 2, cy - size / 2, size, size);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // Distant clouds: invisible, outline included, until an answering
+  // spark reaches one — then a brief flash that fades back to nothing.
+  function drawDistantClouds(now) {
+    for (const c of distantClouds) {
+      const age = now - c.litAt;
+      if (age >= DIST_CLOUD_FLARE_MS) continue;
+      const t = age / DIST_CLOUD_FLARE_MS;
+      const alpha = 1 - t;
+      drawCloudGlow(c.x, c.y, c.r, [200, 225, 255], alpha * 0.8);
+      drawCloudOutline(c.x, c.y, c.r, alpha * 0.75);
+    }
+  }
+
+  function drawSparks(now) {
+    for (const s of sparks) {
+      if (now < s.startAt || !s.pos || !s.dir) continue;
+      const [r, g, b] = WIRE_COLORS[s.colorIdx];
+      const half = DASH_LEN / 2;
+      ctx.strokeStyle = `rgb(${r},${g},${b})`;
+      ctx.lineWidth = SPARK_WIDTH;
       ctx.beginPath();
-      ctx.arc(leaf.x, leaf.y, ringR, 0, Math.PI * 2);
+      ctx.moveTo(s.pos.x - s.dir.dx * half, s.pos.y - s.dir.dy * half);
+      ctx.lineTo(s.pos.x + s.dir.dx * half, s.pos.y + s.dir.dy * half);
       ctx.stroke();
     }
   }
 
-  function pointOnPolyline(points, t) {
-    const idx = t * (points.length - 1);
-    const i0 = Math.floor(idx);
-    const i1 = Math.min(points.length - 1, i0 + 1);
-    const frac = idx - i0;
-    const a = points[i0], b = points[i1];
-    return { x: a.x + (b.x - a.x) * frac, y: a.y + (b.y - a.y) * frac };
+  // ---------------------------------------------------------------------
+  // Spark travel
+  // ---------------------------------------------------------------------
+  function spawnAnswer(fromPoint, now) {
+    if (sparks.length >= MAX_ACTIVE || distantClouds.length === 0) return;
+    const cloud = distantClouds[(Math.random() * distantClouds.length) | 0];
+    const x0 = Math.max(4, Math.min(W - 4, fromPoint.x));
+    const y0 = Math.max(4, Math.min(H - 4, fromPoint.y));
+    const midY = y0 + (cloud.y - y0) * (0.35 + Math.random() * 0.3);
+    const pts = [{ x: x0, y: y0 }, { x: x0, y: midY }, { x: cloud.x, y: midY }, { x: cloud.x, y: cloud.y }];
+    sparks.push({
+      pathInfo: pathWithLengths(pts),
+      startAt: now,
+      colorIdx: (Math.random() * WIRE_COLORS.length) | 0,
+      kind: "up",
+      targetCloud: cloud,
+      pos: null,
+      dir: null
+    });
   }
 
-  function drawPulses(now) {
-    for (const p of pulses) {
-      if (now < p.startAt || !p.pos) continue;
-      const glow = ctx.createRadialGradient(p.pos.x, p.pos.y, 0, p.pos.x, p.pos.y, 5);
-      glow.addColorStop(0, "rgba(255,255,255,0.95)");
-      glow.addColorStop(0.5, "rgba(255,255,255,0.55)");
-      glow.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = glow;
-      ctx.beginPath();
-      ctx.arc(p.pos.x, p.pos.y, 5, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-
-  // Each dot rides one specific invisible strand per edge along its
-  // path (chosen by color), so its motion still follows the tree's real
-  // branch geometry even though that geometry is never drawn.
-  function updatePulses(now) {
-    for (let i = pulses.length - 1; i >= 0; i--) {
-      const p = pulses[i];
-      if (now < p.startAt) continue;
-      const elapsed = now - p.startAt;
-      const edgeIdx = Math.floor(elapsed / EDGE_TRAVEL_MS);
-      if (edgeIdx >= p.path.length) {
-        p.leaf.flareStart = now;
-        pulses.splice(i, 1);
+  function updateSparks(now) {
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      const s = sparks[i];
+      if (now < s.startAt) continue;
+      const dist = SPARK_SPEED * (now - s.startAt);
+      const segs = s.pathInfo.segs;
+      if (dist >= s.pathInfo.total || segs.length === 0) {
+        if (s.kind === "down") {
+          spawnAnswer(segs.length ? segs[segs.length - 1].b : s.pathInfo.segs[0].a, now);
+        } else {
+          s.targetCloud.litAt = now;
+        }
+        sparks.splice(i, 1);
         continue;
       }
-      const edge = p.path[edgeIdx];
-      const strand = edge.strands[p.colorIdx % edge.strands.length];
-      const tInEdge = (elapsed % EDGE_TRAVEL_MS) / EDGE_TRAVEL_MS;
-      p.pos = pointOnPolyline(strand.points, tInEdge);
+      let seg = segs[segs.length - 1];
+      for (const sg of segs) {
+        if (dist <= sg.start + sg.len) { seg = sg; break; }
+      }
+      const localDist = dist - seg.start;
+      s.pos = { x: seg.a.x + seg.dx * localDist, y: seg.a.y + seg.dy * localDist };
+      s.dir = { dx: seg.dx, dy: seg.dy };
     }
   }
 
   // ---------------------------------------------------------------------
-  // Scroll-triggered pulses: each spawn fires one spark per wire color,
-  // each starting at a slightly different moment.
+  // Scroll-triggered spawning: one random down-path per throttled tick,
+  // one spark per color fired along it at staggered moments, plus a
+  // burst of lightning flashes inside the cloud.
   // ---------------------------------------------------------------------
   function onScroll() {
     const now = performance.now();
     if (now - lastSpawnTime < SPAWN_THROTTLE_MS) return;
     lastSpawnTime = now;
-    if (leaves.length === 0) return;
+
+    const x0 = W * 0.5 + (Math.random() - 0.5) * Math.min(W * 0.14, 120);
+    const y0 = cloudY + 6;
+    const pathInfo = pathWithLengths(generateWalk(x0, y0, true));
     for (let c = 0; c < WIRE_COLORS.length; c++) {
-      if (pulses.length >= MAX_PULSES) break;
-      const leaf = leaves[(Math.random() * leaves.length) | 0];
+      if (sparks.length >= MAX_ACTIVE) break;
       const startAt = now + c * SPAWN_STAGGER_MS + Math.random() * SPAWN_STAGGER_MS * 0.6;
-      pulses.push({ path: leaf.path, leaf, colorIdx: c, startAt, pos: null });
+      sparks.push({ pathInfo, startAt, colorIdx: c, kind: "down", pos: null, dir: null });
     }
+
+    for (let i = 0; i < 3; i++) {
+      cloudFlashes.push({ startAt: now + i * 70 + Math.random() * 40, colorIdx: (Math.random() * WIRE_COLORS.length) | 0 });
+    }
+    cloudFlashes = cloudFlashes.filter((f) => f.startAt + CLOUD_FLASH_MS > now - 50).slice(-24);
   }
   if (!reduceMotion) {
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -316,10 +276,10 @@
   // ---------------------------------------------------------------------
   function frame(now) {
     ctx.clearRect(0, 0, W, H);
-    updatePulses(now);
+    updateSparks(now);
+    drawDistantClouds(now);
     drawCloud(now);
-    drawPulses(now);
-    drawLeaves(now);
+    drawSparks(now);
     if (!reduceMotion) requestAnimationFrame(frame);
   }
 
