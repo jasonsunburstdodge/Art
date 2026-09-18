@@ -18,6 +18,12 @@
   // from that exit point, traveling upward the same way until it too
   // runs off screen.
   //
+  // Occasionally, as a spark passes a point along its path, a circuit
+  // component lights up there — a blue capacitor, microchip, or
+  // inductor carrying a short software-success term, or a diode in
+  // random orange or blue with no label — then fades back to
+  // invisible. Most sparks light up nothing at all.
+  //
   // Under prefers-reduced-motion: no sparks at all, one static (empty)
   // render — nothing here moves without being asked to.
   // ---------------------------------------------------------------------
@@ -50,10 +56,22 @@
   const SPAWN_STAGGER_MS = 90;
   const ORIGIN_MARGIN = 48; // spawn point clear of the header
 
+  const CIRCUIT_BLUE = [120, 180, 255];
+  const DIODE_COLORS = [[255, 150, 60], [120, 180, 255]]; // random orange or blue
+  const LABELED_TYPES = ["capacitor", "microchip", "inductor"];
+  const SUCCESS_TERMS = ["BUILD", "SCALE", "SHIP", "SECURE", "DEPLOY", "AUTOMATE", "INTEGRATE", "OPTIMIZE", "MODERNIZE", "CONNECT"];
+  const LABELED_CHANCE = 0.12; // "some" sparks
+  const DIODE_CHANCE = 0.10; // "some" sparks — most (78%) light up nothing
+  const COMPONENT_FADE_IN_MS = 160;
+  const COMPONENT_HOLD_MS = 550;
+  const COMPONENT_FADE_OUT_MS = 550;
+  const MAX_COMPONENTS = 16;
+
   let dpr = Math.min(window.devicePixelRatio || 1, 2);
   let W = 0, H = 0;
   let originY = 0;
   let sparks = [];
+  let components = [];
   let lastSpawnTime = 0;
 
   function pathWithLengths(points) {
@@ -101,6 +119,103 @@
     originY = Math.max(H * 0.09, headerBottom + ORIGIN_MARGIN);
 
     sparks = [];
+    components = [];
+  }
+
+  // ---------------------------------------------------------------------
+  // Circuit components: most paths light up nothing. When one does, it
+  // picks a point along the path and times its reveal to when a spark
+  // would actually reach that point.
+  // ---------------------------------------------------------------------
+  function maybeSpawnComponent(pathInfo, baseStartAt) {
+    if (pathInfo.total < 80 || components.length >= MAX_COMPONENTS) return;
+    const r = Math.random();
+    let type, color, label = null;
+    if (r < LABELED_CHANCE) {
+      type = LABELED_TYPES[(Math.random() * LABELED_TYPES.length) | 0];
+      color = CIRCUIT_BLUE;
+      label = SUCCESS_TERMS[(Math.random() * SUCCESS_TERMS.length) | 0];
+    } else if (r < LABELED_CHANCE + DIODE_CHANCE) {
+      type = "diode";
+      color = DIODE_COLORS[(Math.random() * DIODE_COLORS.length) | 0];
+    } else {
+      return; // most sparks: nothing
+    }
+
+    const dist = pathInfo.total * (0.25 + Math.random() * 0.55);
+    let seg = pathInfo.segs[pathInfo.segs.length - 1];
+    for (const sg of pathInfo.segs) {
+      if (dist <= sg.start + sg.len) { seg = sg; break; }
+    }
+    const local = dist - seg.start;
+    components.push({
+      type, color, label,
+      x: seg.a.x + seg.dx * local,
+      y: seg.a.y + seg.dy * local,
+      litAt: baseStartAt + dist / SPARK_SPEED
+    });
+  }
+
+  function componentAlpha(age) {
+    if (age < COMPONENT_FADE_IN_MS) return age / COMPONENT_FADE_IN_MS;
+    if (age < COMPONENT_FADE_IN_MS + COMPONENT_HOLD_MS) return 1;
+    const t2 = age - COMPONENT_FADE_IN_MS - COMPONENT_HOLD_MS;
+    if (t2 < COMPONENT_FADE_OUT_MS) return 1 - t2 / COMPONENT_FADE_OUT_MS;
+    return -1;
+  }
+
+  function drawComponentShape(type, label) {
+    ctx.lineWidth = 1.3;
+    if (type === "capacitor") {
+      ctx.beginPath(); ctx.moveTo(-16, 0); ctx.lineTo(-5, 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-5, -8); ctx.lineTo(-5, 8); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(5, -8); ctx.lineTo(5, 8); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(16, 0); ctx.stroke();
+    } else if (type === "inductor") {
+      ctx.beginPath();
+      ctx.moveTo(-18, 0);
+      ctx.lineTo(-14, 0);
+      for (let i = 0; i < 4; i++) ctx.arc(-14 + 7 + i * 7, 0, 3.5, Math.PI, 0, false);
+      ctx.lineTo(18, 0);
+      ctx.stroke();
+    } else if (type === "microchip") {
+      ctx.beginPath(); ctx.moveTo(-16, 0); ctx.lineTo(-12, 0); ctx.stroke();
+      ctx.strokeRect(-12, -9, 24, 18);
+      ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(16, 0); ctx.stroke();
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath(); ctx.moveTo(i * 6, -9); ctx.lineTo(i * 6, -13); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(i * 6, 9); ctx.lineTo(i * 6, 13); ctx.stroke();
+      }
+    } else if (type === "diode") {
+      ctx.beginPath(); ctx.moveTo(-16, 0); ctx.lineTo(-6, 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-6, -6); ctx.lineTo(-6, 6); ctx.lineTo(6, 0); ctx.closePath(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(6, -7); ctx.lineTo(6, 7); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(16, 0); ctx.stroke();
+    }
+    if (label) {
+      ctx.font = "6px monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(label, 0, type === "microchip" ? 0 : 17);
+    }
+  }
+
+  function drawComponents(now) {
+    for (let i = components.length - 1; i >= 0; i--) {
+      const c = components[i];
+      const age = now - c.litAt;
+      if (age < 0) continue;
+      const alpha = componentAlpha(age);
+      if (alpha < 0) { components.splice(i, 1); continue; }
+      const [r, g, b] = c.color;
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = `rgb(${r},${g},${b})`;
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      drawComponentShape(c.type, c.label);
+      ctx.restore();
+    }
   }
 
   // ---------------------------------------------------------------------
@@ -147,8 +262,9 @@
     if (sparks.length >= MAX_ACTIVE) return;
     const x0 = Math.max(4, Math.min(W - 4, fromPoint.x));
     const y0 = Math.max(4, Math.min(H - 4, fromPoint.y));
+    const pathInfo = pathWithLengths(generateWalk(x0, y0, false));
     sparks.push({
-      pathInfo: pathWithLengths(generateWalk(x0, y0, false)),
+      pathInfo,
       startAt: now,
       colorIdx: (Math.random() * SPARK_COLORS.length) | 0,
       kind: "up",
@@ -156,6 +272,7 @@
       dir: null,
       trail: []
     });
+    maybeSpawnComponent(pathInfo, now);
   }
 
   function updateSparks(now) {
@@ -201,6 +318,7 @@
       const startAt = now + c * SPAWN_STAGGER_MS + Math.random() * SPAWN_STAGGER_MS * 0.6;
       sparks.push({ pathInfo, startAt, colorIdx: c, kind: "down", pos: null, dir: null, trail: [] });
     }
+    maybeSpawnComponent(pathInfo, now);
   }
   if (!reduceMotion) {
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -212,6 +330,7 @@
   function frame(now) {
     ctx.clearRect(0, 0, W, H);
     updateSparks(now);
+    drawComponents(now);
     drawSparks(now);
     if (!reduceMotion) requestAnimationFrame(frame);
   }
