@@ -450,6 +450,7 @@ button.pillar-more {
   line-height: 1.55;
   color: var(--ink-1);
 }
+.closing-tagline + .summary-text { margin-top: 1.8rem; }
 .closing h3 {
   margin-top: 3rem;
   font-size: clamp(1.6rem, 3.4vw, 2.3rem);
@@ -761,6 +762,8 @@ footer button:hover { color: var(--accent-cyan); }
   gap: 1.2rem;
 }
 .cluster-card {
+  display: flex;
+  flex-direction: column;
   border: 1px solid rgba(183, 196, 230, 0.2);
   border-radius: 14px;
   padding: 1.4rem 1.5rem;
@@ -773,7 +776,7 @@ footer button:hover { color: var(--accent-cyan); }
   margin-bottom: 0.5rem;
 }
 .cluster-card p { font-size: 0.92rem; line-height: 1.55; color: var(--ink-3); }
-.cluster-card .hub-link { display: inline-block; margin-top: 0.9rem; }
+.cluster-card .hub-link { display: inline-block; align-self: flex-start; margin-top: auto; padding-top: 0.9rem; }
 a.cluster-card {
   display: block;
   text-decoration: none;
